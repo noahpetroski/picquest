@@ -1,0 +1,47 @@
+import React, {useState} from 'react';
+import { isPointWithinRadius } from 'geolib';
+import gpxParser from 'gpxparser';
+
+const GpxAnalyzer = () => {
+  const [result, setResult] = useState(null);
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const gpxText = event.target?.result;
+      const gpx = new gpxParser();
+      gpx.parse(gpxText);
+
+      // Extract the coordinates from the first track
+      // GPX files can have multiple tracks, we'll target the first one [0]
+      const trackPoints = gpx.tracks[0].points.map(p => ({
+        latitude: p.lat,
+        longitude: p.lon
+      }));
+
+      checkCheckpoint(trackPoints);
+    };
+
+    reader.readAsText(file);
+  };
+
+  const checkCheckpoint = (points) => {
+    const target = { latitude: 45.523062, longitude: -122.676482 }; // Example target
+    
+    const reached = points.some(p => isPointWithinRadius(p, target, 30));
+    setResult(reached ? "✅ Success! You crossed the point." : "❌ Point not reached.");
+  };
+
+  return (
+    <div style={{ padding: '20px', fontFamily: 'sans-serif' }}>
+      <h2>GPX Point Checker</h2>
+      <input type="file" accept=".gpx" onChange={handleFileUpload} />
+      {result && <p><strong>Result:</strong> {result}</p>}
+    </div>
+  );
+};
+
+export default GpxAnalyzer;
