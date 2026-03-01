@@ -21,7 +21,7 @@ export default function TabTwoScreen() {
     }
   
     const darkColors = {
-      background: 'black',
+      background: '#2C2C2C',
       text: 'white'
     }
     const colorScheme = useColorScheme();
@@ -58,7 +58,7 @@ export default function TabTwoScreen() {
   
     return (
       <SafeAreaView style={[{backgroundColor: colors.background}]}>
-          <ScrollView contentContainerStyle={[styles.body, {backgroundColor: colors.background}]}>
+          <ScrollView contentContainerStyle={[styles.body, {backgroundColor: colors.background, height: '100%'}]}>
             <Text style={[styles.textStyle, styles.head, {color: colors.text}]}>Upload Activity</Text>
             <View style={styles.mapPreview}>
             </View>

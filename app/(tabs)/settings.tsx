@@ -5,7 +5,8 @@ import React, { useState } from 'react';
 
 // auth code: 51ddb1cd07ff831802f44d705754b709aa13e1c5
 // client id: 205554
-
+//https://www.strava.com/oauth/token?client_id=205554&client_secret=cb6edc6c9b489dc707db3106474c6a08b2ac52ff&code=51ddb1cd07ff831802f44d705754b709aa13e1c5&grant_type=authorization_code
+//https://www.strava.com/oauth/token?client_id=205554&client_secret=cb6edc6c9b489dc707db3106474c6a08b2ac52ff&code=51ddb1cd07ff831802f44d705754b709aa13e1c5&grant_type=authorization_code
 export default function HomeScreen() {
   const [fontsLoaded] = useFonts({
         'Radio Canada Big':require('../../assets/fonts/Radio_Canada_Big/RadioCanadaBig.ttf')
@@ -27,8 +28,8 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={[{backgroundColor: colors.background}]}>
       <ScrollView contentContainerStyle={[styles.body, {backgroundColor: colors.background, height: '100%'}]}>
-        <Text style={[styles.head, {color: colors.text}]}>Welcome Back, Noah</Text>
-        <Image source={{ uri: 'https://media.istockphoto.com/id/1840438197/vector/vector-cute-kawaii-pastel-cloud-flat-cartoon-background.jpg?s=612x612&w=0&k=20&c=mf_mIFgxbniVbMtLmey29e1w4SeianYh-rWnnjWVjyE='}} style={styles.image}></Image>
+        <Text style={[styles.head, {color: colors.text}]}>Settings</Text>
+        <Text style={{color:colors.text}}>Please sign in with your Strava Account.</Text>
         <View style={styles.stats}></View>
         <View style={styles.row}>
           <View style={styles.halfbox}>
@@ -43,8 +44,8 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   image: {
-    width: 150,
-    height: 150,
+    width: 200,
+    height: 200,
     borderRadius: 100,
     margin: 15,
   },
