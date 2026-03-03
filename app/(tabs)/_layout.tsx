@@ -7,42 +7,47 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
+import { StravaProvider } from '@/.expo/context/StravaContext';
+
 export default function TabLayout() {
   const colorScheme = useColorScheme();
 
   return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        headerShown: false,
-        tabBarStyle: styles.tabBar,
-        tabBarButton: HapticTab,
-      }}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          tabBarShowLabel: false,
-          tabBarIconStyle: {marginTop: 15},
-          tabBarIcon: ({ color }) => <IconSymbol size={35} name="house.fill" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="upload"
-        options={{
-          tabBarShowLabel: false,
-          tabBarIconStyle: {backgroundColor: 'rgba(0, 147, 255, 1)', width: 70, height: 70, borderRadius: 35, display: 'flex', justifyContent: 'center', alignItems: 'center', bottom: 6},
-          tabBarIcon: () => <IconSymbol size={45} name="plus" color={'white'} />,
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          tabBarShowLabel: false,
-          tabBarIconStyle: {marginTop: 15},
-          tabBarIcon: ({ color }) => <IconSymbol size={35} name="gear" color={color} />,
-        }}
-      />
-    </Tabs>
+    <StravaProvider>
+{      <Tabs
+        screenOptions={{
+          tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+          headerShown: false,
+          tabBarStyle: styles.tabBar,
+          tabBarButton: HapticTab,
+        }}>
+        <Tabs.Screen
+          name="index"
+          options={{
+            tabBarShowLabel: false,
+            tabBarIconStyle: {marginTop: 15},
+            tabBarIcon: ({ color }) => <IconSymbol size={35} name="house.fill" color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="upload"
+          options={{
+            tabBarShowLabel: false,
+            tabBarIconStyle: {backgroundColor: 'rgba(0, 147, 255, 1)', width: 70, height: 70, borderRadius: 35, display: 'flex', justifyContent: 'center', alignItems: 'center', bottom: 6},
+            tabBarIcon: () => <IconSymbol size={45} name="plus" color={'white'} />,
+          }}
+        />
+        <Tabs.Screen
+          name="settings"
+          options={{
+            tabBarShowLabel: false,
+            tabBarIconStyle: {marginTop: 15},
+            tabBarIcon: ({ color }) => <IconSymbol size={35} name="gear" color={color} />,
+          }}
+        />
+      </Tabs>}
+
+    </StravaProvider>
   );
 }
 
