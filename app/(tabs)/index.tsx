@@ -1,6 +1,6 @@
-import { Button, ScrollView, StyleSheet, Text, TextInput, useColorScheme, View, SafeAreaView, Image} from 'react-native';
+import { Button, ScrollView, TouchableOpacity, StyleSheet, Text, TextInput, useColorScheme, View, SafeAreaView, Image} from 'react-native';
 import { useFonts } from'expo-font';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, act } from 'react';
 import { StravaProvider, useStrava } from '@/.expo/context/StravaContext';
 
 export default function HomeScreen() {
@@ -43,24 +43,58 @@ export default function HomeScreen() {
     return (secs/60).toFixed(0);
   }
 
-  // function getArrowString() {
-  //   let res = "";
-  //   let distTrend = stats?.recent_run_totals?.distance.compareTo(stats?.recent_run_totals?.distance;
-  //   if ())
-  // }
+  const pqLogoSrc = require('@/assets/images/PQ-white.png');
+  const [mileTColor, setMTColor] = useState('white');
+  const [activeTColor, setATColor] = useState('white');
+  const [objTColor, setOTColor] = useState('white');
+
+  function getTrend(stat) {
+    let curr = 1/ stats?.recent_run_totals?.count;
+    let last = 1/ stats?.recent_run_totals?.count;
+    let change;
+    if (stat == 'mile') {
+      curr *= stats?.recent_run_totals?.distance;
+      last *= stats?.ytd_run_totals?.distance;
+      change = mileTColor;
+    } else if (stat == 'time') {
+      curr *= stats?.recent_run_totals?.elapsed_time;
+      last *= stats?.ytd_run_totals?.elapsed_time;
+      change = activeTColor;
+    } else { // switch to objs when i implement them
+      curr *= stats?.recent_run_totals?.achievement_count;
+      last *= stats?.ytd_run_totals?.achievement_count;
+      change = objTColor;
+    }
+    let trend = curr-last
+    if (trend > 0) {
+      change = 'green';
+      return `↗`;
+    } else if (trend < 0) {
+      change = 'red';
+      return `↘`;
+    } else {
+      change = 'white';
+      return `→`;
+    }
+  }
 
   return (
     <SafeAreaView style={[{backgroundColor: colors.background}]}>
         {authenticated? 
-          <ScrollView contentContainerStyle={[styles.body, {backgroundColor: colors.background, height: '100%'}]}>
+          <View style={[styles.body, {backgroundColor: colors.background, height: '100%'}]}>
             <Text style={[styles.head, {color: colors.text}]}>Welcome Back, {athlete?.firstname}</Text> 
-            <Image source={{ uri: 'https://media.istockphoto.com/id/1840438197/vector/vector-cute-kawaii-pastel-cloud-flat-cartoon-background.jpg?s=612x612&w=0&k=20&c=mf_mIFgxbniVbMtLmey29e1w4SeianYh-rWnnjWVjyE='}} style={styles.image}></Image>
+            {/* <Image source={{ uri: 'https://media.istockphoto.com/id/1840438197/vector/vector-cute-kawaii-pastel-cloud-flat-cartoon-background.jpg?s=612x612&w=0&k=20&c=mf_mIFgxbniVbMtLmey29e1w4SeianYh-rWnnjWVjyE='}} style={styles.image}></Image> */}
+            <Image source={{ uri: athlete?.profile}} style={styles.image}></Image>
             <View style={styles.stats}>
               <Text style={[styles.sectHead, {color: colors.text}]}>THIS WEEK:</Text>
               <View style={styles.row}>
                 <Text style={[styles.sectBody]}>{"MILEAGE\nACTIVE TIME\nOBJECTS COLLECTED"}</Text>
-                <Text style={[styles.sectBody, {textAlign: 'right', flex: 1}]}>{`${meterToMile(stats?.recent_run_totals?.distance)} MI\n${secsToMin(stats?.recent_run_totals?.elapsed_time)} MIN\n 10`}</Text>
-                <Text style={[styles.sectBody, {color: colors.text}]}>{`↗\n→\n↘`}</Text>
+                <Text style={[styles.sectBody, {textAlign: 'right', flex: 1, color: colors.text}]}>{`${meterToMile(stats?.recent_run_totals?.distance)} MI\n${secsToMin(stats?.recent_run_totals?.elapsed_time)} MIN\n 10`}</Text>
+                <View>
+                  <Text style={[styles.sectBody, {color: mileTColor}]}>{getTrend('mile')}</Text>
+                  <Text style={[styles.sectBody, {color: activeTColor}]}>{getTrend('active')}</Text>
+                  <Text style={[styles.sectBody, {color: objTColor}]}>{getTrend('obj')}</Text>
+                </View>
               </View>
             </View>
             <View style={styles.row}>
@@ -71,13 +105,15 @@ export default function HomeScreen() {
                 <Text style={[styles.sectHead, {color: colors.text, textAlign: 'center'}]}>MY MAP</Text>
               </View>
             </View>
-          </ScrollView>
+          </View>
           : 
-          <ScrollView contentContainerStyle={[styles.body, {backgroundColor: colors.background, height: '100%'}]}>
+          <View style={[styles.body, {backgroundColor: colors.background, height: '100%'}]}>
+            <View style={[{height: 70}]}></View>
+            <Image style={[{width: '100%', height: 220, resizeMode: 'contain',}]} source={pqLogoSrc}></Image>
             <Text style={[styles.head, {color: colors.text}]}>Welcome to PicQuest!</Text> 
             <Text style={[styles.body, {color: colors.text}]}>Please log in to your Strava account to begin.</Text> 
-            <View style={styles.button}><Button disabled={!request} onPress={() => promptAsync()} title="Connect Strava"/></View>
-          </ScrollView>
+            <TouchableOpacity onPress={() => promptAsync()} style={styles.button}><Text style={styles.buttonText}>CONNECT STRAVA</Text></TouchableOpacity>
+          </View>
         }
     </SafeAreaView>
   );
@@ -91,7 +127,15 @@ const styles = StyleSheet.create({
   },
   button: {
     width: '100%',
-    margin: 10
+    margin: 10,
+    backgroundColor: 'rgba(80, 119, 142, 1)',
+    borderRadius: 10,
+    padding: 10,
+  },
+  buttonText: {
+    color: 'white',
+    textAlign: 'center',
+    fontSize: 17,
   },
   titleContainer: {
     flexDirection: 'row',

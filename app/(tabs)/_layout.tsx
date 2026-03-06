@@ -33,7 +33,7 @@ export default function TabLayout() {
           name="upload"
           options={{
             tabBarShowLabel: false,
-            tabBarIconStyle: {backgroundColor: 'rgba(0, 147, 255, 1)', width: 70, height: 70, borderRadius: 35, display: 'flex', justifyContent: 'center', alignItems: 'center', bottom: 6},
+            tabBarIconStyle: {backgroundColor: 'rgba(80, 119, 142, 1)', width: 70, height: 70, borderRadius: 35, display: 'flex', justifyContent: 'center', alignItems: 'center', bottom: 6},
             tabBarIcon: () => <IconSymbol size={45} name="plus" color={'white'} />,
           }}
         />

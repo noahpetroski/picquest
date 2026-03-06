@@ -33,7 +33,7 @@ export function StravaProvider({ children }) {
   const [request, response, promptAsync] = AuthSession.useAuthRequest(
     {
       clientId: CLIENT_ID,
-      scopes: ['read'],
+      scopes: ['read,activity:read_all'],
       redirectUri,
       responseType: 'code',
     },

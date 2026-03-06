@@ -1,132 +1,13 @@
 import { useFonts } from 'expo-font';
 import React, { useEffect, useState } from 'react';
-import { Button, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, useColorScheme, View } from 'react-native';
+import { Button, Image, Pressable, SafeAreaView, TouchableOpacity, ScrollView, StyleSheet, Text, FlatList, TextInput, useColorScheme, View } from 'react-native';
 import { useStrava } from '@/.expo/context/StravaContext';
-
-import * as AuthSession from 'expo-auth-session';
-import * as SecureStore from 'expo-secure-store';
-import * as WebBrowser from 'expo-web-browser';
-
-
-// // Strava authorization
-// WebBrowser.maybeCompleteAuthSession();
-
-// const CLIENT_ID = '207104';
-// const CLIENT_SECRET = '0d24a6cd22aef5056cb05e553ef94f1c5ee43401';
-
-// const discovery = {
-//   authorizationEndpoint: 'https://www.strava.com/oauth/mobile/authorize',
-//   tokenEndpoint: 'https://www.strava.com/oauth/token',
-// };
-
-// // OAuth Setup
-// export function useStravaAuth() {
-//   const redirectUri = AuthSession.makeRedirectUri({ scheme: 'picquest' });
-
-//   const [request, response, promptAsync] = AuthSession.useAuthRequest(
-//     {
-//       clientId: CLIENT_ID,
-//       scopes: ['read'],
-//       redirectUri,
-//       responseType: 'code',
-//     },
-//     discovery
-//   );
-
-//   useEffect(() => {
-//   if (request) {
-//     console.log('Auth URL:', request.url);
-//   }
-//   }, [request]);
-
-//   useEffect(() => {
-//     if (response?.type === 'success') {
-//       const { code } = response.params;
-//       exchangeCodeForToken(code);
-//     }
-//   }, [response]);
-
-//   const exchangeCodeForToken = async (code) => {
-//     const res = await fetch('https://www.strava.com/oauth/token', {
-//       method: 'POST',
-//       headers: { 'Content-Type': 'application/json' },
-//       body: JSON.stringify({
-//         client_id: CLIENT_ID,
-//         client_secret: CLIENT_SECRET,
-//         code,
-//         grant_type: 'authorization_code',
-//       }),
-//     });
-
-//     const data = await res.json();
-
-//     // Store tokens securely
-//     await SecureStore.setItem('strava_access_token', data.access_token);
-//     await SecureStore.setItem('strava_refresh_token', data.refresh_token);
-//     await SecureStore.setItem('strava_token_expiry', String(data.expires_at));
-//   };
-
-//   return { request, promptAsync };
-// }
-
-// // Token Refresh
-// const refreshAccessToken = async () => {
-//   const refreshToken = await SecureStore.getItem('strava_refresh_token');
-
-//   const res = await fetch('https://www.strava.com/oauth/token', {
-//     method: 'POST',
-//     headers: { 'Content-Type': 'application/json' },
-//     body: JSON.stringify({
-//       client_id: CLIENT_ID,
-//       client_secret: CLIENT_SECRET,
-//       refresh_token: refreshToken,
-//       grant_type: 'refresh_token',
-//     }),
-//   });
-
-//   const data = await res.json();
-//   await SecureStore.setItem('strava_access_token', data.access_token);
-//   await SecureStore.setItem('strava_token_expiry', String(data.expires_at));
-
-//   return data.access_token;
-// };
-
-// const getValidToken = async () => {
-//   const expiry = await SecureStore.getItem('strava_token_expiry');
-//   const now = Math.floor(Date.now() / 1000);
-
-//   if (now >= Number(expiry) - 300) { // refresh 5 min early
-//     return await refreshAccessToken();
-//   }
-
-//   return await SecureStore.getItem('strava_access_token');
-// };
-
-// // API Calls
-// const getAthleteActivities = async () => {
-//   const token = await getValidToken();
-
-//   const res = await fetch('https://www.strava.com/api/v3/athlete/activities', {
-//     headers: { Authorization: `Bearer ${token}` },
-//   });
-
-//   return res.json();
-// };
-
-// const fetchFromStrava = async (endpoint: any) => {
-//   const token = await getValidToken();
-
-//   const res = await fetch(`https://www.strava.com/api/v3${endpoint}`, {
-//     headers: { Authorization: `Bearer ${token}` },
-//   });
-
-//   return res.json();
-// };
-
 
 export default function TabTwoScreen() {
 
   // Style Settings
+  const pqLogoSrc = require('@/assets/images/PQ-white.png');
+
   const [fontsLoaded] = useFonts({
     'Radio Canada Big':require('../../assets/fonts/Radio_Canada_Big/RadioCanadaBig.ttf')
   });
@@ -145,78 +26,72 @@ export default function TabTwoScreen() {
 
   const {athlete, authenticated, fetchFromStrava, request, promptAsync} = useStrava();
 
-    const [activities, setActivities] = useState([]);
-  
-    useEffect(() => {
-      const loadActivities = async () => {
-        const acts = await fetchFromStrava(`/athletes/${athlete?.id}/activities`);
-        setActivities(acts);
-      };
-  
-      if (athlete?.id) {
-        loadActivities();
-      }
-    }, [athlete]);
+  const [activities, setActivities] = useState([]);
 
-  // user data
-  // const [name, setName] = useState();
-  // useEffect(() => {
-  //   const load = async () => {
-  //     const profile = await fetchFromStrava('/athlete');
-  //     setName(profile.firstname);
-  //   };
-  //   load();
-  // }, []);
+  useEffect(() => {
+    const loadActivities = async () => {
+      const acts = await fetchFromStrava(`/athletes/${athlete?.id}/activities`);
+      setActivities(acts);
+    };
+
+    if (athlete?.id) {
+      loadActivities();
+    }
+  }, [athlete]);
+
+  const [selectedActivity, selectActivity] = useState(null);
 
   // Map Stuff
   const [status, setStatus] = useState("none");
-  const [latInp, setLatInp] = useState("none");
-  const [lonInp, setLonInp] = useState("none");
-  let currentFile;
 
-  const updLat = (event: { target: { value: React.SetStateAction<string>; }; }) => {
-    setLatInp(event.target.value);
+  function meterToMile(meters) {
+    return (meters/1609).toFixed(2);
   }
 
-  const updLon = (event: { target: { value: React.SetStateAction<string>; }; }) => {
-    setLonInp(event.target.value);
+  const activityComp = ({ item }) => {
+    return (
+      <TouchableOpacity onPress={() => selectActivity(item)} style={[styles.stats, {marginBottom: 10}]}>
+        <View>
+          <Text style={[{color: colors.text}]}>{item.name}</Text>
+          <Text style={[{color: colors.text}]}>{`${meterToMile(item.distance)} mi`}</Text>
+          <Text style={[{color: colors.text}]}>{item.start_date}</Text>
+          </View>
+      </TouchableOpacity>
+    )
   }
-
-    // API Req
-    //const {request, promptAsync} = useStravaAuth();
-  
-    // const selectFile = async () => {
-    //   // const {status} = await MediaLibrary.requestPermissionsAsync();
-
-    //   // if (status == 'granted') {
-    //     currentFile = await DocumentPicker.getDocumentAsync({
-    //     type: "/*/",
-    //   });
-  
-    //   if (!currentFile.canceled) {
-    //     setStatus(currentFile.assets[0].name);
-    //   }
-    //   // }
-
-    // }
-  
-  
   
     return (
       <SafeAreaView style={[{backgroundColor: colors.background}]}>
           {authenticated?
-            <ScrollView contentContainerStyle={[styles.body, {backgroundColor: colors.background, height: '100%'}]}>
-              <Text style={[styles.textStyle, styles.head, {color: colors.text}]}>Upload Activity</Text>
-              <View style={styles.mapPreview}>
-              </View>
-              <Text style={[styles.textStyle, {color: colors.text}]}>{athlete.firstname} connected via Strava.</Text>
-          </ScrollView>
+            <View style={[styles.body, {backgroundColor: colors.background, height: '100%'}]}>
+              {selectedActivity != null ?
+                <View style={[{width: '100%', display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center'}]}>
+                  <Text style={[styles.textStyle, styles.head, {color: colors.text}]}>Upload Activity</Text>
+                  <View style={styles.mapPreview}>
+                  </View>
+                  <Text style={[styles.textStyle, {color: colors.text}]}>{selectedActivity?.name}</Text>
+                  <TouchableOpacity onPress={() => selectActivity(null)} style={[styles.button]}>
+                    <Text style={styles.buttonText}>Cancel Upload</Text>
+                  </TouchableOpacity>
+                </View>
+                :
+                <View style={[{width: '100%', gap: 10}]}>
+                  <Text style={[styles.textStyle, styles.head, {color: colors.text}]}>Upload Activity</Text>
+                  <Text style={[styles.textStyle, {color: colors.text}]}>Select one of your recent activities.</Text>
+                  <View style={[{display: 'flex', flexDirection: 'column', width: '100%'}]}>
+                    <FlatList scrollEnabled={false} style={[{width: '100%'}]} data={activities} renderItem={activityComp} keyExtractor={item => item.id} />
+                  </View>
+                </View>
+              }
+          </View>
           :
-          <ScrollView contentContainerStyle={[styles.body, {backgroundColor: colors.background, height: '100%'}]}>
+          <View style={[styles.body, {backgroundColor: colors.background, height: '100%'}]}>
+            <View style={[{height: 70}]}></View>
+            <Image style={[{width: '100%', height: 220, resizeMode: 'contain',}]} source={pqLogoSrc}></Image>
             <Text style={[styles.head, {color: colors.text}]}>Welcome to PicQuest!</Text> 
-            <Text style={[styles.body, {color: colors.text}]}>Please log in to your Strava account to begin.</Text>
-            <View style={styles.button}><Button disabled={!request} onPress={() => promptAsync()} title="Connect Strava"/></View>
-          </ScrollView>
+            <Text style={[styles.body, {color: colors.text}]}>Please log in to your Strava account to begin.</Text> 
+            <TouchableOpacity onPress={() => promptAsync()} style={styles.button}><Text style={styles.buttonText}>CONNECT STRAVA</Text></TouchableOpacity>
+          </View>
 
           }
       </SafeAreaView>
@@ -227,6 +102,7 @@ const styles = StyleSheet.create({
   body: {
     flexDirection: 'column',
     margin: 20,
+    gap: 15,
     fontFamily: 'Radio Canada Big',
     alignItems: 'center',
   },
@@ -241,6 +117,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  stats: {
+    backgroundColor: '#3A3A3A',
+    width: '100%',
+    borderRadius: 30,
+    padding: 20,
+  },
   head: {
     fontSize: 30,
     fontFamily: 'Radio Canada Big',
@@ -249,7 +131,15 @@ const styles = StyleSheet.create({
   },
   button: {
     width: '100%',
-    margin: 10
+    margin: 10,
+    backgroundColor: 'rgba(80, 119, 142, 1)',
+    borderRadius: 10,
+    padding: 10,
+  },
+  buttonText: {
+    color: 'white',
+    textAlign: 'center',
+    fontSize: 17,
   },
   textBox: {
     borderColor: 'gray',
