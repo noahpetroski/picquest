@@ -1,7 +1,8 @@
 import { Button, ScrollView, TouchableOpacity, StyleSheet, Text, TextInput, useColorScheme, View, SafeAreaView, Image} from 'react-native';
 import { useFonts } from'expo-font';
 import React, { useState, useEffect, act } from 'react';
-import { StravaProvider, useStrava } from '@/.expo/context/StravaContext';
+import { StravaProvider, useStrava } from '@/context/StravaContext';
+import { Redirect } from 'expo-router';
 
 export default function HomeScreen() {
   const [fontsLoaded] = useFonts({
@@ -78,12 +79,14 @@ export default function HomeScreen() {
     }
   }
 
+  if (!authenticated) {
+    return <Redirect href="/welcome" />;
+  }
+
   return (
     <SafeAreaView style={[{backgroundColor: colors.background}]}>
-        {authenticated? 
           <View style={[styles.body, {backgroundColor: colors.background, height: '100%'}]}>
             <Text style={[styles.head, {color: colors.text}]}>Welcome Back, {athlete?.firstname}</Text> 
-            {/* <Image source={{ uri: 'https://media.istockphoto.com/id/1840438197/vector/vector-cute-kawaii-pastel-cloud-flat-cartoon-background.jpg?s=612x612&w=0&k=20&c=mf_mIFgxbniVbMtLmey29e1w4SeianYh-rWnnjWVjyE='}} style={styles.image}></Image> */}
             <Image source={{ uri: athlete?.profile}} style={styles.image}></Image>
             <View style={styles.stats}>
               <Text style={[styles.sectHead, {color: colors.text}]}>THIS WEEK:</Text>
@@ -106,15 +109,6 @@ export default function HomeScreen() {
               </View>
             </View>
           </View>
-          : 
-          <View style={[styles.body, {backgroundColor: colors.background, height: '100%'}]}>
-            <View style={[{height: 70}]}></View>
-            <Image style={[{width: '100%', height: 220, resizeMode: 'contain',}]} source={pqLogoSrc}></Image>
-            <Text style={[styles.head, {color: colors.text}]}>Welcome to PicQuest!</Text> 
-            <Text style={[styles.body, {color: colors.text}]}>Please log in to your Strava account to begin.</Text> 
-            <TouchableOpacity onPress={() => promptAsync()} style={styles.button}><Text style={styles.buttonText}>CONNECT STRAVA</Text></TouchableOpacity>
-          </View>
-        }
     </SafeAreaView>
   );
 }

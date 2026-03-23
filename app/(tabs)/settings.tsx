@@ -2,7 +2,7 @@ import { Button, ScrollView, StyleSheet, TouchableOpacity, Text, TextInput, useC
 import { useFonts } from'expo-font';
 
 import React, { useState } from 'react';
-import { useStrava } from '@/.expo/context/StravaContext';
+import { useStrava } from '@/context/StravaContext';
 
 // auth code: 51ddb1cd07ff831802f44d705754b709aa13e1c5
 // client id: 205554
@@ -32,7 +32,6 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView style={[{backgroundColor: colors.background}]}>
-      {authenticated?
         <View style={[styles.body, {backgroundColor: colors.background, height: '100%'}]}>
           <Text style={[styles.head, {color: colors.text}]}>Settings</Text>
           <View style={[styles.stats, styles.row]}>
@@ -44,15 +43,6 @@ export default function SettingsScreen() {
           </View>
           <TouchableOpacity style={styles.button}><Text style={styles.buttonText}>Sign Out</Text></TouchableOpacity>
         </View>
-      :
-      <View style={[styles.body, {backgroundColor: colors.background, height: '100%'}]}>
-        <View style={[{height: 70}]}></View>
-        <Image style={[{width: '100%', height: 220, resizeMode: 'contain',}]} source={pqLogoSrc}></Image>
-        <Text style={[styles.head, {color: colors.text}]}>Welcome to PicQuest!</Text> 
-        <Text style={[styles.body, {color: colors.text}]}>Please log in to your Strava account to begin.</Text> 
-        <TouchableOpacity onPress={() => promptAsync()} style={styles.button}><Text style={styles.buttonText}>CONNECT STRAVA</Text></TouchableOpacity>
-      </View>
-      }
     </SafeAreaView>
   );
 }

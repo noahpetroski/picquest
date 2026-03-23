@@ -19,34 +19,56 @@ const CLIENT_SECRET = '0d24a6cd22aef5056cb05e553ef94f1c5ee43401';
 
 const discovery = {
   authorizationEndpoint: 'https://www.strava.com/oauth/mobile/authorize',
-  tokenEndpoint: 'https://www.strava.com/oauth/token',
 };
 
 export function StravaProvider({ children }) {
   const [athlete, setAthlete] = useState(null);
   const [authenticated, setAuthentication] = useState(false);
 
+  const loadAthlete = async () => {
+    const profile = await fetchFromStrava('/athlete');
+    setAthlete(profile);
+  }
+
+  useEffect(() => {
+  const checkAuth = async () => {
+    const token = await SecureStore.getItemAsync('strava_access_token');
+    if (token) {
+      setAuthentication(true);
+      await loadAthlete();
+    }
+  };
+
+  checkAuth();
+}, []);
+
 
   // Authorization Setup
   const redirectUri = AuthSession.makeRedirectUri({ scheme: 'picquest' });
 
   const [request, response, promptAsync] = AuthSession.useAuthRequest(
-    {
-      clientId: CLIENT_ID,
-      scopes: ['read,activity:read_all'],
-      redirectUri,
-      responseType: 'code',
+  {
+    clientId: CLIENT_ID,
+    redirectUri,
+    responseType: 'code',
+    extraParams: {
+      scope: 'read,activity:read_all',
+      approval_prompt: 'auto',
     },
-    discovery
-  );
+  },
+  discovery
+);
 
   useEffect(() => {
   if (request) {
-    console.log('Auth URL:', request.url);
+    console.log('Authorized.');
+    // console.log(''Auth URL:', request.url');
   }
   }, [request]);
 
   useEffect(() => {
+    console.log("FULL RESPONSE:", response);
+
     if (response?.type === 'success') {
       const { code } = response.params;
       exchangeCodeForToken(code);
@@ -66,11 +88,17 @@ export function StravaProvider({ children }) {
     });
 
     const data = await res.json();
+    console.log('Token exchange response:', data);
+
+    if (!data.access_token) {
+      console.log('Token exchange failed');
+      return;
+    }
 
     // Store tokens securely
-    await SecureStore.setItem('strava_access_token', data.access_token);
-    await SecureStore.setItem('strava_refresh_token', data.refresh_token);
-    await SecureStore.setItem('strava_token_expiry', String(data.expires_at));
+    await SecureStore.setItemAsync('strava_access_token', data.access_token);
+    await SecureStore.setItemAsync('strava_refresh_token', data.refresh_token);
+    await SecureStore.setItemAsync('strava_token_expiry', String(data.expires_at));
 
     setAuthentication(true);
     await loadAthlete();
@@ -79,7 +107,7 @@ export function StravaProvider({ children }) {
 
   // Handle Token Refresh
   const refreshAccessToken = async () => {
-    const refreshToken = await SecureStore.getItem('strava_refresh_token');
+    const refreshToken = await SecureStore.getItemAsync('strava_refresh_token');
 
     const res = await fetch('https://www.strava.com/oauth/token', {
       method: 'POST',
@@ -93,14 +121,14 @@ export function StravaProvider({ children }) {
     });
 
     const data = await res.json();
-    await SecureStore.setItem('strava_access_token', data.access_token);
-    await SecureStore.setItem('strava_token_expiry', String(data.expires_at));
+    await SecureStore.setItemAsync('strava_access_token', data.access_token);
+    await SecureStore.setItemAsync('strava_token_expiry', String(data.expires_at));
 
     return data.access_token;
   };
 
   const getValidToken = async () => {
-    const expiry = await SecureStore.getItem('strava_token_expiry');
+    const expiry = await SecureStore.getItemAsync('strava_token_expiry');
     if (!expiry) return null;
 
     const now = Math.floor(Date.now() / 1000);
@@ -109,7 +137,7 @@ export function StravaProvider({ children }) {
       return await refreshAccessToken();
     }
 
-    return await SecureStore.getItem('strava_access_token');
+    return await SecureStore.getItemAsync('strava_access_token');
   };
 
   const fetchFromStrava = async (endpoint) => {
@@ -123,11 +151,6 @@ export function StravaProvider({ children }) {
 
     return res.json();
   };
-
-  const loadAthlete = async () => {
-    const profile = await fetchFromStrava('/athlete');
-    setAthlete(profile);
-  }
 
   // didn't include log out or in stuff?
 

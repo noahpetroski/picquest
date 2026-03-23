@@ -1,7 +1,12 @@
 import { useFonts } from 'expo-font';
 import React, { useEffect, useState } from 'react';
-import { Button, Image, Pressable, SafeAreaView, TouchableOpacity, ScrollView, StyleSheet, Text, FlatList, TextInput, useColorScheme, View } from 'react-native';
-import { useStrava } from '@/.expo/context/StravaContext';
+import { Button, Image, Pressable, Platform, SafeAreaView, TouchableOpacity, ScrollView, StyleSheet, Text, FlatList, TextInput, useColorScheme, View } from 'react-native';
+import { useStrava } from '@/context/StravaContext';
+import { mysteryLocations, checkInRadius } from '@/context/MystLocContext';
+import polyline from '@mapbox/polyline';
+import MapView, { Polyline } from 'react-native-maps';
+import {AppleMaps, GoogleMaps} from 'expo-maps';
+import Collapsible from 'react-native-collapsible';
 
 export default function TabTwoScreen() {
 
@@ -24,12 +29,15 @@ export default function TabTwoScreen() {
   const colorScheme = useColorScheme();
   const colors = colorScheme == 'dark' ? darkColors : lightColors;
 
+
+  // Use Strava API Context
   const {athlete, authenticated, fetchFromStrava, request, promptAsync} = useStrava();
 
   const [activities, setActivities] = useState([]);
 
   useEffect(() => {
     const loadActivities = async () => {
+      // const acts = await fetchFromStrava(`athlete/activities`);
       const acts = await fetchFromStrava(`/athletes/${athlete?.id}/activities`);
       setActivities(acts);
     };
@@ -40,6 +48,22 @@ export default function TabTwoScreen() {
   }, [athlete]);
 
   const [selectedActivity, selectActivity] = useState(null);
+  const [currCoords, setCoords] = useState([]);
+  
+  const pickActivity= async (item) => {
+    setCoords([]);
+    selectActivity(item);
+    const itemPolyline = item.map.summary_polyline;
+    const decoded = polyline.decode(itemPolyline).map(([lat, lng]) => ({latitude: lat, longitude: lng,}));
+    setCoords(decoded);
+  };
+
+
+  // Mystery Locations
+  // const {mysteryLocations, checkInRadius} = useMystLoc();
+  const [dropdownState, setDropdownState] = useState(false);
+
+
 
   // Map Stuff
   const [status, setStatus] = useState("none");
@@ -48,13 +72,26 @@ export default function TabTwoScreen() {
     return (meters/1609).toFixed(2);
   }
 
+  function convertDate(isoInput) {
+    let date = new Date(isoInput);
+    return date.toLocaleString();
+  }
+
+  function formatSeconds(secs) {
+    let hours = Math.floor(secs/3600);
+    let minutes = Math.floor((secs%3600)/60);
+    let seconds = secs%60;
+
+    return `${hours>0? String(hours).padStart(2, '0') + ':' : ''}${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }
+
   const activityComp = ({ item }) => {
     return (
-      <TouchableOpacity onPress={() => selectActivity(item)} style={[styles.stats, {marginBottom: 10}]}>
+      <TouchableOpacity onPress={() => pickActivity(item)} style={[styles.stats, {marginBottom: 10}]}>
         <View>
-          <Text style={[{color: colors.text}]}>{item.name}</Text>
-          <Text style={[{color: colors.text}]}>{`${meterToMile(item.distance)} mi`}</Text>
-          <Text style={[{color: colors.text}]}>{item.start_date}</Text>
+          <Text style={[{fontWeight: 500, color: colors.text}]}>{item.name}</Text>
+          <Text style={[{fontWeight: 300, color: colors.text}]}>{`${meterToMile(item.distance)} mi`}</Text>
+          <Text style={[{fontWeight: 300, color: colors.text}]}>{convertDate(item.start_date)}</Text>
           </View>
       </TouchableOpacity>
     )
@@ -62,15 +99,46 @@ export default function TabTwoScreen() {
   
     return (
       <SafeAreaView style={[{backgroundColor: colors.background}]}>
-          {authenticated?
             <View style={[styles.body, {backgroundColor: colors.background, height: '100%'}]}>
               {selectedActivity != null ?
                 <View style={[{width: '100%', display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center'}]}>
                   <Text style={[styles.textStyle, styles.head, {color: colors.text}]}>Upload Activity</Text>
-                  <View style={styles.mapPreview}>
-                  </View>
-                  <Text style={[styles.textStyle, {color: colors.text}]}>{selectedActivity?.name}</Text>
+                  {currCoords.length != 0 ?
+                    <MapView
+                      style={styles.mapPreview}
+                      region={currCoords.length > 0 ? {
+                        latitude: currCoords[0].latitude,
+                        longitude: currCoords[0].longitude,
+                        latitudeDelta: 0.05,
+                        longitudeDelta: 0.05,
+                      } : undefined}> 
+                      {currCoords.length > 0 && (
+                      <Polyline
+                        coordinates={currCoords} 
+                        strokeColor="rgb(233, 192, 9)"
+                        strokeWidth={3}
+                      />
+                    )}
+                    </MapView>
+                  :
+                    <View style={styles.mapPreview}>
+                      <Text style={[styles.textStyle, {color: colors.text}]}>No map preview available</Text>
+                    </View>
+                  }
+                  <Text style={[styles.textStyle, {fontWeight: 600, fontSize: 20, color: colors.text}]}>{selectedActivity?.name}</Text>
+                  <Text style={[styles.textStyle, {fontWeight: 100, fontSize: 19, color: colors.text}]}>{`${meterToMile(selectedActivity.distance)} MI    |    ${formatSeconds(selectedActivity.elapsed_time)}    |    ${selectedActivity.total_elevation_gain} FT`}</Text>
+                  <View style={[{width: '90%', backgroundColor: 'gray', opacity: 0.5, height: 1, marginTop: 10, marginBottom: 10}]}></View>
+                  <TouchableOpacity onPress={() => setDropdownState(!dropdownState)} style={[styles.dropdownbtn]}>
+                    <Text style={styles.buttonText}>Mystery Locations   ▼</Text>
+                  </TouchableOpacity>
+                  <Collapsible collapsed={dropdownState}>
+                    <Text style={[styles.textStyle, {fontWeight: 100, fontSize: 15, color: colors.text}]}>{`Lake Loop hit? ${checkInRadius(mysteryLocations[0], currCoords)}`}</Text>
+                    <Text style={[styles.textStyle, {fontWeight: 100, fontSize: 15, color: colors.text}]}>{`Kehoe hit? ${checkInRadius(mysteryLocations[1], currCoords)}`}</Text>
+                  </Collapsible>
                   <TouchableOpacity onPress={() => selectActivity(null)} style={[styles.button]}>
+                    <Text style={styles.buttonText}>Upload</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => selectActivity(null)} style={[styles.button, {backgroundColor: 'gray'}]}>
                     <Text style={styles.buttonText}>Cancel Upload</Text>
                   </TouchableOpacity>
                 </View>
@@ -84,16 +152,6 @@ export default function TabTwoScreen() {
                 </View>
               }
           </View>
-          :
-          <View style={[styles.body, {backgroundColor: colors.background, height: '100%'}]}>
-            <View style={[{height: 70}]}></View>
-            <Image style={[{width: '100%', height: 220, resizeMode: 'contain',}]} source={pqLogoSrc}></Image>
-            <Text style={[styles.head, {color: colors.text}]}>Welcome to PicQuest!</Text> 
-            <Text style={[styles.body, {color: colors.text}]}>Please log in to your Strava account to begin.</Text> 
-            <TouchableOpacity onPress={() => promptAsync()} style={styles.button}><Text style={styles.buttonText}>CONNECT STRAVA</Text></TouchableOpacity>
-          </View>
-
-          }
       </SafeAreaView>
     );
 }
@@ -107,7 +165,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   mapPreview: {
-    width: '90%',
+    width: '100%',
     height: 250,
     borderStyle: 'dashed',
     borderColor: '#7a7a7a',
@@ -131,7 +189,6 @@ const styles = StyleSheet.create({
   },
   button: {
     width: '100%',
-    margin: 10,
     backgroundColor: 'rgba(80, 119, 142, 1)',
     borderRadius: 10,
     padding: 10,
@@ -140,6 +197,9 @@ const styles = StyleSheet.create({
     color: 'white',
     textAlign: 'center',
     fontSize: 17,
+  },
+  dropdownbtn: {
+
   },
   textBox: {
     borderColor: 'gray',

@@ -1,24 +1,39 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
+import { StravaProvider, useStrava } from '@/context/StravaContext';
+import { Slot, router } from 'expo-router';
+import { useEffect, useState } from 'react';
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
+function Authorize() {
+  const { authenticated } = useStrava();
+  const [ready, setReady] = useState(false);
 
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
+  useEffect(() => {
+    const timer = setTimeout(()  => setReady(true), 100);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    console.log('authenticated:', authenticated, 'ready:', ready);
+    if (!ready) {
+      return;
+    }
+
+    console.log('Navigating, authenticated:', authenticated);
+
+    if (authenticated) {
+      console.log('About to navigate to tabs');
+      setTimeout(() => router.replace('/(tabs)'), 0);
+    } else {
+      setTimeout(() => router.replace('/welcome'), 0);
+    }
+  }, [authenticated, ready]);
+
+  return <Slot />;
+}
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <StravaProvider>
+      <Authorize />
+    </StravaProvider>
   );
 }

@@ -1,47 +1,121 @@
-import React, {useState} from 'react';
-import { isPointWithinRadius } from 'geolib';
-import gpxParser from 'gpxparser';
+import { Stack, Tabs } from 'expo-router';
+import React from 'react';
+import { StyleSheet, useColorScheme} from 'react-native';
 
-const GpxAnalyzer = () => {
-  const [result, setResult] = useState(null);
+import { HapticTab } from '@/components/haptic-tab';
+import { IconSymbol } from '@/components/ui/icon-symbol';
+import { Colors } from '@/constants/theme';
 
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+import { StravaProvider, useStrava } from '@/context/StravaContext';
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const gpxText = event.target?.result;
-      const gpx = new gpxParser();
-      gpx.parse(gpxText);
-
-      // Extract the coordinates from the first track
-      // GPX files can have multiple tracks, we'll target the first one [0]
-      const trackPoints = gpx.tracks[0].points.map(p => ({
-        latitude: p.lat,
-        longitude: p.lon
-      }));
-
-      checkCheckpoint(trackPoints);
-    };
-
-    reader.readAsText(file);
-  };
-
-  const checkCheckpoint = (points) => {
-    const target = { latitude: 45.523062, longitude: -122.676482 }; // Example target
-    
-    const reached = points.some(p => isPointWithinRadius(p, target, 30));
-    setResult(reached ? "✅ Success! You crossed the point." : "❌ Point not reached.");
-  };
-
+function AppTabs({colorScheme}) {
   return (
-    <div style={{ padding: '20px', fontFamily: 'sans-serif' }}>
-      <h2>GPX Point Checker</h2>
-      <input type="file" accept=".gpx" onChange={handleFileUpload} />
-      {result && <p><strong>Result:</strong> {result}</p>}
-    </div>
-  );
-};
+      <Tabs
+        screenOptions={{
+          tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+          headerShown: false,
+          tabBarStyle: styles.tabBar,
+          tabBarButton: HapticTab,
+        }}>
+        <Tabs.Screen
+          name="index"
+          options={{
+            tabBarShowLabel: false,
+            tabBarIconStyle: {marginTop: 15},
+            tabBarIcon: ({ color }) => <IconSymbol size={35} name="house.fill" color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="upload"
+          options={{
+            tabBarShowLabel: false,
+            tabBarIconStyle: {backgroundColor: 'rgba(80, 119, 142, 1)', width: 70, height: 70, borderRadius: 35, display: 'flex', justifyContent: 'center', alignItems: 'center', bottom: 6},
+            tabBarIcon: () => <IconSymbol size={45} name="plus" color={'white'} />,
+          }}
+        />
+        <Tabs.Screen
+          name="settings"
+          options={{
+            tabBarShowLabel: false,
+            tabBarIconStyle: {marginTop: 15},
+            tabBarIcon: ({ color }) => <IconSymbol size={35} name="gear" color={color} />,
+          }}
+        />
+      </Tabs> );
+}
 
-export default GpxAnalyzer;
+function AuthStack() {
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="welcome" />
+    </Stack>
+  );
+}
+
+function TabLayout() {
+  const colorScheme = useColorScheme();
+  const {authenticated} = useStrava();
+
+  return <AppTabs colorScheme={colorScheme} />;
+}
+
+export default function TabLayoutWrapper() {
+  return (
+    <StravaProvider>
+      <TabLayout />
+    </StravaProvider>
+  );
+}
+
+const styles = StyleSheet.create({
+  tabBar: {
+    position: 'absolute',
+    marginLeft: '2.5%',
+    bottom: 20,
+    borderRadius: 35,
+    width: '95%',
+    height: 70,
+    borderTopWidth: 0, // removes default top border
+    elevation: 0, // removes Android shadow line
+    backgroundColor:'rgba(0,0,0,0.8)', // important!
+  },
+  background: {
+    flex: 1,
+    borderRadius: 25,
+    backgroundColor: 'rgba(0,0,0,0.6)', // semi-transparent black
+  },
+  button: {
+    width: '100%',
+    margin: 10,
+    backgroundColor: 'rgba(80, 119, 142, 1)',
+    borderRadius: 10,
+    padding: 10,
+  },
+  buttonText: {
+    color: 'white',
+    textAlign: 'center',
+    fontSize: 17,
+  },
+  titleContainer: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  body: {
+    flexDirection: 'column',
+    fontFamily: 'Radio Canada Big',
+    margin: 20,
+    gap: 15,
+    alignItems: 'center'
+  },
+  row: {
+    flexDirection: 'row',
+    gap: 10,
+    width: '100%',
+  },
+  head: {
+    fontSize: 30,
+    fontWeight: 600,
+    fontFamily: 'Radio Canada Big',
+    textAlign: 'center'
+  },
+});
