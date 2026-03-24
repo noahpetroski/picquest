@@ -8,7 +8,8 @@ const StravaContext = createContext({
   authenticated: false,
   fetchFromStrava: async () => null,
   request: null,
-  promptAsync: async () => null,
+  login: async () => null,
+  logout: async () => null,
 });
 
 // Strava authorization
@@ -62,13 +63,10 @@ export function StravaProvider({ children }) {
   useEffect(() => {
   if (request) {
     console.log('Authorized.');
-    // console.log(''Auth URL:', request.url');
   }
   }, [request]);
 
   useEffect(() => {
-    console.log("FULL RESPONSE:", response);
-
     if (response?.type === 'success') {
       const { code } = response.params;
       exchangeCodeForToken(code);
@@ -88,7 +86,6 @@ export function StravaProvider({ children }) {
     });
 
     const data = await res.json();
-    console.log('Token exchange response:', data);
 
     if (!data.access_token) {
       console.log('Token exchange failed');
@@ -153,6 +150,15 @@ export function StravaProvider({ children }) {
   };
 
   // didn't include log out or in stuff?
+  const login = () => promptAsync();
+
+  const logout = async () => {
+    await SecureStore.deleteItemAsync('strava_access_token');
+    await SecureStore.deleteItemAsync('strava_refresh_token');
+    await SecureStore.deleteItemAsync('strava_token_expiry');
+    setAthlete(null);
+    setAuthentication(null);
+  }
 
   return (
     <StravaContext.Provider value={{
@@ -160,7 +166,8 @@ export function StravaProvider({ children }) {
       authenticated,
       fetchFromStrava,
       request,
-      promptAsync,
+      login,
+      logout,
     }}>{children}
     </StravaContext.Provider>
   );

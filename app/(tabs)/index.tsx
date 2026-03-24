@@ -3,6 +3,8 @@ import { useFonts } from'expo-font';
 import React, { useState, useEffect, act } from 'react';
 import { StravaProvider, useStrava } from '@/context/StravaContext';
 import { Redirect } from 'expo-router';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 
 export default function HomeScreen() {
   const [fontsLoaded] = useFonts({
@@ -21,7 +23,7 @@ export default function HomeScreen() {
   const colorScheme = useColorScheme();
   const colors = colorScheme == 'dark' ? darkColors : lightColors;
 
-  const {athlete, authenticated, fetchFromStrava, request, promptAsync} = useStrava();
+  const {athlete, authenticated, fetchFromStrava} = useStrava();
 
   const [stats, setStats] = useState([]);
 
@@ -85,7 +87,7 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={[{backgroundColor: colors.background}]}>
-          <View style={[styles.body, {backgroundColor: colors.background, height: '100%'}]}>
+          <Animated.View style={[styles.body, {backgroundColor: colors.background, height: '100%'}]} entering={FadeInDown.duration(1000)}>
             <Text style={[styles.head, {color: colors.text}]}>Welcome Back, {athlete?.firstname}</Text> 
             <Image source={{ uri: athlete?.profile}} style={styles.image}></Image>
             <View style={styles.stats}>
@@ -101,14 +103,14 @@ export default function HomeScreen() {
               </View>
             </View>
             <View style={styles.row}>
-              <View style={styles.halfbox}>
+              <TouchableOpacity style={styles.halfbox} onPress={() => {Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft)}}>
                 <Text style={[styles.sectHead, {color: colors.text, textAlign: 'center'}]}>COLLECTION</Text>
-              </View>
-              <View style={styles.halfbox}>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.halfbox} onPress={() => {Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft)}}>
                 <Text style={[styles.sectHead, {color: colors.text, textAlign: 'center'}]}>MY MAP</Text>
-              </View>
+              </TouchableOpacity>
             </View>
-          </View>
+          </Animated.View>
     </SafeAreaView>
   );
 }

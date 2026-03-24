@@ -3,6 +3,8 @@ import { useFonts } from'expo-font';
 
 import React, { useState } from 'react';
 import { useStrava } from '@/context/StravaContext';
+import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 
 // auth code: 51ddb1cd07ff831802f44d705754b709aa13e1c5
 // client id: 205554
@@ -27,12 +29,12 @@ export default function SettingsScreen() {
   const colorScheme = useColorScheme();
   const colors = colorScheme == 'dark' ? darkColors : lightColors;
 
-  const {athlete, authenticated, fetchFromStrava, request, promptAsync} = useStrava();
+  const {athlete, logout} = useStrava();
 
 
   return (
     <SafeAreaView style={[{backgroundColor: colors.background}]}>
-        <View style={[styles.body, {backgroundColor: colors.background, height: '100%'}]}>
+        <Animated.View style={[styles.body, {backgroundColor: colors.background, height: '100%'}]} entering={FadeInDown.duration(1000)}>
           <Text style={[styles.head, {color: colors.text}]}>Settings</Text>
           <View style={[styles.stats, styles.row]}>
             <Image source={{ uri: athlete?.profile}} style={styles.image}></Image> 
@@ -41,8 +43,8 @@ export default function SettingsScreen() {
               <Text style={{color:colors.text}}>Connected with your Strava account</Text>
             </View>
           </View>
-          <TouchableOpacity style={styles.button}><Text style={styles.buttonText}>Sign Out</Text></TouchableOpacity>
-        </View>
+          <TouchableOpacity style={styles.button} onPress={() => {Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); logout()}}><Text style={styles.buttonText}>Sign Out</Text></TouchableOpacity>
+        </Animated.View>
     </SafeAreaView>
   );
 }

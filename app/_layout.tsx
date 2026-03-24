@@ -12,18 +12,14 @@ function Authorize() {
   }, []);
 
   useEffect(() => {
-    console.log('authenticated:', authenticated, 'ready:', ready);
     if (!ready) {
       return;
     }
 
-    console.log('Navigating, authenticated:', authenticated);
-
     if (authenticated) {
-      console.log('About to navigate to tabs');
-      setTimeout(() => router.replace('/(tabs)'), 0);
+      router.replace('/(tabs)');
     } else {
-      setTimeout(() => router.replace('/welcome'), 0);
+      router.replace('/welcome');
     }
   }, [authenticated, ready]);
 

@@ -1,12 +1,13 @@
 import { useFonts } from 'expo-font';
 import React, { useEffect, useState } from 'react';
-import { Button, Image, Pressable, Platform, SafeAreaView, TouchableOpacity, ScrollView, StyleSheet, Text, FlatList, TextInput, useColorScheme, View } from 'react-native';
+import { SafeAreaView, TouchableOpacity, ScrollView, StyleSheet, Text, FlatList, TextInput, useColorScheme, View } from 'react-native';
 import { useStrava } from '@/context/StravaContext';
 import { mysteryLocations, checkInRadius } from '@/context/MystLocContext';
 import polyline from '@mapbox/polyline';
 import MapView, { Polyline } from 'react-native-maps';
-import {AppleMaps, GoogleMaps} from 'expo-maps';
 import Collapsible from 'react-native-collapsible';
+import Animated, { FadeInDown, FadeIn, FadeInUp } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 
 export default function TabTwoScreen() {
 
@@ -31,7 +32,7 @@ export default function TabTwoScreen() {
 
 
   // Use Strava API Context
-  const {athlete, authenticated, fetchFromStrava, request, promptAsync} = useStrava();
+  const {athlete, fetchFromStrava} = useStrava();
 
   const [activities, setActivities] = useState([]);
 
@@ -64,6 +65,9 @@ export default function TabTwoScreen() {
   const [dropdownState, setDropdownState] = useState(false);
 
 
+  //Animations
+  
+
 
   // Map Stuff
   const [status, setStatus] = useState("none");
@@ -85,23 +89,25 @@ export default function TabTwoScreen() {
     return `${hours>0? String(hours).padStart(2, '0') + ':' : ''}${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   }
 
-  const activityComp = ({ item }) => {
+  const activityComp = ({ item, index }) => {
     return (
-      <TouchableOpacity onPress={() => pickActivity(item)} style={[styles.stats, {marginBottom: 10}]}>
-        <View>
-          <Text style={[{fontWeight: 500, color: colors.text}]}>{item.name}</Text>
-          <Text style={[{fontWeight: 300, color: colors.text}]}>{`${meterToMile(item.distance)} mi`}</Text>
-          <Text style={[{fontWeight: 300, color: colors.text}]}>{convertDate(item.start_date)}</Text>
-          </View>
-      </TouchableOpacity>
+      <Animated.View entering={FadeInDown.delay(index*100)}>
+        <TouchableOpacity onPress={() => {Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); pickActivity(item)}} style={[styles.stats, {marginBottom: 10}]}>
+          <View>
+            <Text style={[{fontWeight: 500, color: colors.text}]}>{item.name}</Text>
+            <Text style={[{fontWeight: 300, color: colors.text}]}>{`${meterToMile(item.distance)} mi`}</Text>
+            <Text style={[{fontWeight: 300, color: colors.text}]}>{convertDate(item.start_date)}</Text>
+            </View>
+        </TouchableOpacity>
+      </Animated.View>
     )
   }
   
     return (
       <SafeAreaView style={[{backgroundColor: colors.background}]}>
-            <View style={[styles.body, {backgroundColor: colors.background, height: '100%'}]}>
+            <Animated.View style={[styles.body, {backgroundColor: colors.background, height: '100%'}]} entering={FadeInDown.duration(1000)}>
               {selectedActivity != null ?
-                <View style={[{width: '100%', display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center'}]}>
+                <Animated.View style={[{width: '100%', display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center'}]} entering={FadeIn.duration(1000)}>
                   <Text style={[styles.textStyle, styles.head, {color: colors.text}]}>Upload Activity</Text>
                   {currCoords.length != 0 ?
                     <MapView
@@ -141,7 +147,7 @@ export default function TabTwoScreen() {
                   <TouchableOpacity onPress={() => selectActivity(null)} style={[styles.button, {backgroundColor: 'gray'}]}>
                     <Text style={styles.buttonText}>Cancel Upload</Text>
                   </TouchableOpacity>
-                </View>
+                </Animated.View>
                 :
                 <View style={[{width: '100%', gap: 10}]}>
                   <Text style={[styles.textStyle, styles.head, {color: colors.text}]}>Upload Activity</Text>
@@ -151,7 +157,7 @@ export default function TabTwoScreen() {
                   </View>
                 </View>
               }
-          </View>
+          </Animated.View>
       </SafeAreaView>
     );
 }
