@@ -2,7 +2,7 @@ import { useFonts } from 'expo-font';
 import React, { useEffect, useState } from 'react';
 import { SafeAreaView, TouchableOpacity, ScrollView, StyleSheet, Text, FlatList, TextInput, useColorScheme, View } from 'react-native';
 import { useStrava } from '@/context/StravaContext';
-import { mysteryLocations, checkInRadius } from '@/context/MystLocContext';
+import { useMystLoc } from '@/context/MystLocContext';
 import polyline from '@mapbox/polyline';
 import MapView, { Polyline } from 'react-native-maps';
 import Collapsible from 'react-native-collapsible';
@@ -50,6 +50,7 @@ export default function TabTwoScreen() {
 
   const [selectedActivity, selectActivity] = useState(null);
   const [currCoords, setCoords] = useState([]);
+  const [foundSpots, setFoundSpots] = useState([]);
   
   const pickActivity= async (item) => {
     setCoords([]);
@@ -57,16 +58,14 @@ export default function TabTwoScreen() {
     const itemPolyline = item.map.summary_polyline;
     const decoded = polyline.decode(itemPolyline).map(([lat, lng]) => ({latitude: lat, longitude: lng,}));
     setCoords(decoded);
+    // setFoundSpots(checkInRadius(currCoords));
+    setFoundSpots(checkInRadius(decoded));
   };
 
 
   // Mystery Locations
-  // const {mysteryLocations, checkInRadius} = useMystLoc();
+  const {mysteryLocations, checkInRadius, newLocs, addLocation} = useMystLoc();
   const [dropdownState, setDropdownState] = useState(false);
-
-
-  //Animations
-  
 
 
   // Map Stuff
@@ -92,7 +91,7 @@ export default function TabTwoScreen() {
   const activityComp = ({ item, index }) => {
     return (
       <Animated.View entering={FadeInDown.delay(index*100)}>
-        <TouchableOpacity onPress={() => {Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); pickActivity(item)}} style={[styles.stats, {marginBottom: 10}]}>
+        <TouchableOpacity onPress={() => {Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid); pickActivity(item)}} style={[styles.stats, {marginBottom: 10}]}>
           <View>
             <Text style={[{fontWeight: 500, color: colors.text}]}>{item.name}</Text>
             <Text style={[{fontWeight: 300, color: colors.text}]}>{`${meterToMile(item.distance)} mi`}</Text>
@@ -138,8 +137,7 @@ export default function TabTwoScreen() {
                     <Text style={styles.buttonText}>Mystery Locations   ▼</Text>
                   </TouchableOpacity>
                   <Collapsible collapsed={dropdownState}>
-                    <Text style={[styles.textStyle, {fontWeight: 100, fontSize: 15, color: colors.text}]}>{`Lake Loop hit? ${checkInRadius(mysteryLocations[0], currCoords)}`}</Text>
-                    <Text style={[styles.textStyle, {fontWeight: 100, fontSize: 15, color: colors.text}]}>{`Kehoe hit? ${checkInRadius(mysteryLocations[1], currCoords)}`}</Text>
+                    <Text style={[styles.textStyle, {fontWeight: 100, fontSize: 15, color: colors.text}]}>{`Found Spots: ${foundSpots[0]}`}</Text>
                   </Collapsible>
                   <TouchableOpacity onPress={() => selectActivity(null)} style={[styles.button]}>
                     <Text style={styles.buttonText}>Upload</Text>

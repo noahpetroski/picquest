@@ -32,33 +32,33 @@ export function StravaProvider({ children }) {
   }
 
   useEffect(() => {
-  const checkAuth = async () => {
-    const token = await SecureStore.getItemAsync('strava_access_token');
-    if (token) {
-      setAuthentication(true);
-      await loadAthlete();
-    }
-  };
+    const checkAuth = async () => {
+      const token = await SecureStore.getItemAsync('strava_access_token');
+      if (token) {
+        setAuthentication(true);
+        await loadAthlete();
+      }
+    };
 
-  checkAuth();
-}, []);
+    checkAuth();
+  }, []);
 
 
   // Authorization Setup
   const redirectUri = AuthSession.makeRedirectUri({ scheme: 'picquest' });
 
   const [request, response, promptAsync] = AuthSession.useAuthRequest(
-  {
-    clientId: CLIENT_ID,
-    redirectUri,
-    responseType: 'code',
-    extraParams: {
-      scope: 'read,activity:read_all',
-      approval_prompt: 'auto',
+    {
+      clientId: CLIENT_ID,
+      redirectUri,
+      responseType: 'code',
+      extraParams: {
+        scope: 'read,activity:read_all',
+        approval_prompt: 'auto',
+      },
     },
-  },
-  discovery
-);
+    discovery
+  );
 
   useEffect(() => {
   if (request) {

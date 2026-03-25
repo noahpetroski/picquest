@@ -1,10 +1,11 @@
-import { Button, ScrollView, TouchableOpacity, StyleSheet, Text, TextInput, useColorScheme, View, SafeAreaView, Image} from 'react-native';
+import { Button, FlatList, ScrollView, TouchableOpacity, StyleSheet, Text, TextInput, useColorScheme, View, SafeAreaView, Image} from 'react-native';
 import { useFonts } from'expo-font';
 import React, { useState, useEffect, act } from 'react';
 import { StravaProvider, useStrava } from '@/context/StravaContext';
 import { Redirect } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import { mysteryLocations, checkInRadius, getNewLocs, addLocation, useMystLoc } from '@/context/MystLocContext';
 
 export default function HomeScreen() {
   const [fontsLoaded] = useFonts({
@@ -28,6 +29,7 @@ export default function HomeScreen() {
   const [stats, setStats] = useState([]);
 
   useEffect(() => {
+
     const loadStats = async () => {
       const stats = await fetchFromStrava(`/athletes/${athlete?.id}/stats`);
       setStats(stats);
@@ -46,11 +48,6 @@ export default function HomeScreen() {
     return (secs/60).toFixed(0);
   }
 
-  const pqLogoSrc = require('@/assets/images/PQ-white.png');
-  const [mileTColor, setMTColor] = useState('white');
-  const [activeTColor, setATColor] = useState('white');
-  const [objTColor, setOTColor] = useState('white');
-
   function getTrend(stat) {
     let curr = 1/ stats?.recent_run_totals?.count;
     let last = 1/ stats?.recent_run_totals?.count;
@@ -58,35 +55,65 @@ export default function HomeScreen() {
     if (stat == 'mile') {
       curr *= stats?.recent_run_totals?.distance;
       last *= stats?.ytd_run_totals?.distance;
-      change = mileTColor;
     } else if (stat == 'time') {
       curr *= stats?.recent_run_totals?.elapsed_time;
       last *= stats?.ytd_run_totals?.elapsed_time;
-      change = activeTColor;
     } else { // switch to objs when i implement them
       curr *= stats?.recent_run_totals?.achievement_count;
       last *= stats?.ytd_run_totals?.achievement_count;
-      change = objTColor;
     }
-    let trend = curr-last
+    let trend = curr-last;
+    let ret = "";
     if (trend > 0) {
       change = 'green';
-      return `↗`;
+      ret = `↗`;
     } else if (trend < 0) {
       change = 'red';
-      return `↘`;
+      ret =`↘`;
     } else {
       change = 'white';
-      return `→`;
+      ret = `→`;
     }
+    if (stat == 'mile') {
+      return [change, ret];
+    } else if (stat == "time") {
+      return [change, ret];
+    } else {
+      return [change, ret];
+    }
+  }
+
+  const getColor = (stat) => {
+    let res = getTrend(stat);
+    return res[0];
+  }
+
+  function getArrow(stat) {
+    let res = getTrend(stat);
+    return res[1];
   }
 
   if (!authenticated) {
     return <Redirect href="/welcome" />;
   }
 
+  const {mysteryLocations, checkInRadius, newLocs, addLocation} = useMystLoc();
+
+  const activityComp = ({ item, index }) => {
+    return (
+      <Animated.View entering={FadeInDown.delay(index*100)}>
+        <TouchableOpacity onPress={() => {Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid);}} style={[styles.stats, {marginBottom: 10}]}>
+          <View>
+            <Text style={[{fontWeight: 500, color: colors.text}]}>{item.name}</Text>
+            </View>
+        </TouchableOpacity>
+      </Animated.View>
+    )
+  }
+
   return (
     <SafeAreaView style={[{backgroundColor: colors.background}]}>
+      <ScrollView showsVerticalScrollIndicator={false}>
           <Animated.View style={[styles.body, {backgroundColor: colors.background, height: '100%'}]} entering={FadeInDown.duration(1000)}>
             <Text style={[styles.head, {color: colors.text}]}>Welcome Back, {athlete?.firstname}</Text> 
             <Image source={{ uri: athlete?.profile}} style={styles.image}></Image>
@@ -96,9 +123,9 @@ export default function HomeScreen() {
                 <Text style={[styles.sectBody]}>{"MILEAGE\nACTIVE TIME\nOBJECTS COLLECTED"}</Text>
                 <Text style={[styles.sectBody, {textAlign: 'right', flex: 1, color: colors.text}]}>{`${meterToMile(stats?.recent_run_totals?.distance)} MI\n${secsToMin(stats?.recent_run_totals?.elapsed_time)} MIN\n 10`}</Text>
                 <View>
-                  <Text style={[styles.sectBody, {color: mileTColor}]}>{getTrend('mile')}</Text>
-                  <Text style={[styles.sectBody, {color: activeTColor}]}>{getTrend('active')}</Text>
-                  <Text style={[styles.sectBody, {color: objTColor}]}>{getTrend('obj')}</Text>
+                  <Text style={[styles.sectBody, {color: getColor('mile')}]}>{getArrow('mile')}</Text>
+                  <Text style={[styles.sectBody, {color: getColor('time')}]}>{getArrow('time')}</Text>
+                  <Text style={[styles.sectBody, {color: getColor('obj')}]}>{getArrow('obj')}</Text>
                 </View>
               </View>
             </View>
@@ -110,7 +137,14 @@ export default function HomeScreen() {
                 <Text style={[styles.sectHead, {color: colors.text, textAlign: 'center'}]}>MY MAP</Text>
               </TouchableOpacity>
             </View>
+            <View style={[{display: 'flex', flexDirection: 'column', width: '100%'}]}>
+              <FlatList scrollEnabled={false} style={[{width: '100%'}]} data={newLocs} renderItem={activityComp} keyExtractor={item => item.id} />
+            </View>
+            <Text></Text>
+            <View style={styles.tabBarSpacer}>
+            </View>
           </Animated.View>
+        </ScrollView>
     </SafeAreaView>
   );
 }
@@ -120,6 +154,9 @@ const styles = StyleSheet.create({
     width: 150,
     height: 150,
     borderRadius: 100,
+  },
+  tabBarSpacer : {
+    height: 10,
   },
   button: {
     width: '100%',
