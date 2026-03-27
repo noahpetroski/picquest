@@ -5,6 +5,7 @@ const MystLocContext = createContext({
     mysteryLocations: [],
     checkInRadius: null,
     newLocs: [],
+    getMyLocs: async () => null,
     addLocation: async () => null,
 });
 
@@ -19,6 +20,17 @@ export function MystLocProvider({children}) {
     useEffect(() => {
         getNewLocs();
     }, []);
+
+    const getMyLocs = async() => {
+        let currentListString = await SecureStore.getItemAsync('my_locations');
+        let currentList = [];
+        if (currentListString) {
+            currentList = JSON.parse(currentListString);
+        } else {
+            console.log("nothing stored right now / error");
+        }
+        return currentList;
+    }
 
     const addLocation = async (newLocation) => {
         let currentListString = await SecureStore.getItemAsync('my_locations');
@@ -50,7 +62,6 @@ export function MystLocProvider({children}) {
 
     function checkInRadius(routePoints) {
         getNewLocs();
-        console.log(newLocs);
         let found = [];
         const radius = 0.000395; // approx 50 meters (make less?)
         for (let i = 0; i < routePoints.length; i++) {
@@ -75,6 +86,7 @@ export function MystLocProvider({children}) {
             mysteryLocations,
             checkInRadius,
             newLocs,
+            getMyLocs,
             addLocation,
         }}>{children}
         </MystLocContext.Provider>
