@@ -1,9 +1,9 @@
 import { Button, FlatList, ScrollView, TouchableOpacity, StyleSheet, Text, TextInput, useColorScheme, View, SafeAreaView, Image} from 'react-native';
 import { useFonts } from'expo-font';
-import React, { useState, useEffect, act } from 'react';
+import React, { useState, useEffect, act, useRef } from 'react';
 import { StravaProvider, useStrava } from '@/context/StravaContext';
 import { Redirect } from 'expo-router';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown, SlideInRight, ZoomIn } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useMystLoc } from '@/context/MystLocContext';
@@ -51,7 +51,13 @@ export default function HomeScreen() {
   }
 
   function secsToMin(secs) {
-    return (secs/60).toFixed(0);
+    let min = Math.floor(secs/60);
+    let result = "";
+    if (min > 60) {
+      result = `${(min / 60).toFixed(0)} HR, `;
+      min = min % 60;
+    }
+    return result + min;
   }
 
   function getTrend(stat) {
@@ -103,8 +109,19 @@ export default function HomeScreen() {
     return <Redirect href="/welcome" />;
   }
 
-  const {mysteryLocations, checkInRadius, newLocs, addLocation} = useMystLoc();
+  const {mysteryLocations, myLocs, checkInRadius, getMyLocs, newLocs, addLocation} = useMystLoc();
   const [myLocation, setMyLocation] = useState({latitude: 38.985969, longitude: -76.942562});
+  const [myLocations, setMyLocations] = useState([]);
+
+  // const getMyLocsN = async() => {
+  //     try {
+  //         let currentListString = await SecureStore.getItemAsync('my_locations');
+  //         return currentListString ? JSON.parse(currentListString) : [];
+  //     } catch (error) {
+  //         console.error("Error fetching location: ", error);
+  //         return [];
+  //     }
+  // };
 
   useEffect (() => {
     const getLocation = async () => {
@@ -114,9 +131,8 @@ export default function HomeScreen() {
       }
       let location = await Location.getCurrentPositionAsync({});
       setMyLocation({latitude: location.coords.latitude, longitude: location.coords.longitude});
-    }
+    };
     getLocation();
-
   }, []);
 
   function getDistanceAway(item) {
@@ -139,7 +155,36 @@ export default function HomeScreen() {
     )
   }
 
+  function CarouselItem({item}) {
+    // const itemImage = require(`${item.image}`);
+    const itemImage = require(`@/assets/images/myst-locs/kehoe-track.png`);
+    return (
+      <View>
+        <Image style={styles.carouselImage} source={itemImage} resizeMode="cover"/>
+        <View style={styles.carouselTextContainer}>
+          <Text style={[{color: colors.text, fontFamily: 'Radio Canada Big', fontSize: 20}]}>{item.name}</Text>
+          <Text style={styles.sectBody}>ACQUIRED 28 MARCH 2025</Text>
+        </View>
+      </View>
+    );
+  }
+
+  function LocationsScroll() {
+    const scrollRef = useRef<Animated.ScrollView>(null);
+    const imageWidth = 300;
+    return (
+      <Animated.ScrollView 
+        ref={scrollRef}
+        horizontal 
+        showsHorizontalScrollIndicator={false}
+        snapToInterval={imageWidth}>
+          {myLocs.map((item, index) => (<CarouselItem item={item} key={index}></CarouselItem>))}
+      </Animated.ScrollView>
+    )
+  }
+
   function StatsView() {
+    const itemImage = require(`@/assets/images/myst-locs/kehoe-track.png`);
     return (
       <Animated.View style={[styles.body, {backgroundColor: colors.background, height: '100%'}]} entering={FadeInDown.duration(1000)}>
         <Text style={[styles.head, {color: colors.text}]}>Welcome Back, {athlete?.firstname}</Text> 
@@ -147,8 +192,8 @@ export default function HomeScreen() {
         <View style={styles.stats}>
           <Text style={[styles.sectHead, {color: colors.text}]}>THIS WEEK:</Text>
           <View style={styles.row}>
-            <Text style={[styles.sectBody]}>{"MILEAGE\nACTIVE TIME\nOBJECTS COLLECTED"}</Text>
-            <Text style={[styles.sectBody, {textAlign: 'right', flex: 1, color: colors.text}]}>{`${meterToMile(stats?.recent_run_totals?.distance)} MI\n${secsToMin(stats?.recent_run_totals?.elapsed_time)} MIN\n 10`}</Text>
+            <Text style={[styles.sectBody]}>{"MILEAGE\nACTIVE TIME\nDISCOVERIES"}</Text>
+            <Text style={[styles.sectBody, {textAlign: 'right', flex: 1, color: colors.text}]}>{`${meterToMile(stats?.recent_run_totals?.distance)} MI\n${secsToMin(stats?.recent_run_totals?.elapsed_time)} MIN\n ${myLocs.length}`}</Text>
             <View>
               <Text style={[styles.sectBody, {color: getColor('mile')}]}>{getArrow('mile')}</Text>
               <Text style={[styles.sectBody, {color: getColor('time')}]}>{getArrow('time')}</Text>
@@ -159,9 +204,21 @@ export default function HomeScreen() {
         <View style={styles.row}>
           <TouchableOpacity style={styles.halfbox} onPress={() => {Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft); setScreen('collection')}}>
             <Text style={[styles.sectHead, {color: colors.text, textAlign: 'center'}]}>COLLECTION</Text>
+            <Image style={styles.mapSmallPreview} source={itemImage}></Image>
           </TouchableOpacity>
           <TouchableOpacity style={styles.halfbox} onPress={() => {Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft); setScreen('map')}}>
             <Text style={[styles.sectHead, {color: colors.text, textAlign: 'center'}]}>MY MAP</Text>
+            <MapView
+            style={styles.mapSmallPreview}
+            region={myLocation ? {
+              latitude: myLocation.latitude,
+              longitude: myLocation.longitude,
+              latitudeDelta: 0.05,
+              longitudeDelta: 0.05,
+            } : undefined}> 
+            {//<Marker coordinate={myLocation} title="my location"/>
+            }
+            </MapView>  
           </TouchableOpacity>
         </View>
         <Text></Text>
@@ -179,17 +236,17 @@ export default function HomeScreen() {
           <Text style={[styles.head, {color: colors.text,}]}>My Collection</Text>
         </View>
         <View style={[{display: 'flex', flexDirection: 'column', width: '100%'}]}>
-          <FlatList scrollEnabled={false} style={[{width: '100%'}]} data={newLocs} renderItem={locationComp} keyExtractor={item => item.id} />
+          {myLocs.length > 0 ? <LocationsScroll></LocationsScroll> : <Text style={[{color: 'grey', fontSize: 16, textAlign: 'center'}]}>No locations yet! Try the discover button to look for new ones!</Text>}
         </View>
+        {/* <TouchableOpacity style={styles.button} onPress={() => {getMyLocs(); console.log(getMyLocs())}}><Text style={styles.buttonText}>Check locs</Text></TouchableOpacity> */}
         <TouchableOpacity style={styles.button} onPress={() => setScreen('map')}><Text style={styles.buttonText}>Discover New</Text></TouchableOpacity>
       </Animated.View>
     );
   }
 
   function MyMapView() {
-
     return (
-      <Animated.View style={[styles.body, {backgroundColor: colors.background, height: '100%'}]} entering={FadeInDown.duration(1000)}>
+      <Animated.View style={[styles.body, {backgroundColor: colors.background, height: '100%'}]} entering={FadeInDown.duration(700)}>
         <View style={[{width: '100%', marginTop: 0}]}>
           <TouchableOpacity style={styles.backButton} onPress={() => setScreen('stats')}><IconSymbol size={25} name="chevron.left" color="white" /></TouchableOpacity>
           <Text style={[styles.head, {color: colors.text,}]}>Discover Locations</Text>
@@ -241,6 +298,19 @@ const styles = StyleSheet.create({
     height: 150,
     borderRadius: 100,
   },
+  carouselImage: {
+    height: 400,
+    width: 300,
+    borderRadius: 20,
+  },
+  carouselTextContainer: {
+    marginTop: 10,
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 10,
+  },
   tabBarSpacer : {
     minHeight: 10,
     flexGrow: 1,
@@ -251,6 +321,11 @@ const styles = StyleSheet.create({
     margin: 10,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  mapSmallPreview: {
+    width: '100%',
+    height: 120,
+    borderRadius: 20,
   },
   button: {
     width: '100%',

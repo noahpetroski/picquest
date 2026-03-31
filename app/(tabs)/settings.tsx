@@ -1,8 +1,9 @@
-import { Button, ScrollView, StyleSheet, TouchableOpacity, Text, TextInput, useColorScheme, View, SafeAreaView, Image} from 'react-native';
+import { Button, ScrollView, StyleSheet, TouchableOpacity, Text, TextInput, useColorScheme, View, SafeAreaView, Image, Alert} from 'react-native';
 import { useFonts } from'expo-font';
 
 import React, { useState } from 'react';
 import { useStrava } from '@/context/StravaContext';
+import { useMystLoc } from '@/context/MystLocContext';
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
@@ -30,6 +31,15 @@ export default function SettingsScreen() {
   const colors = colorScheme == 'dark' ? darkColors : lightColors;
 
   const {athlete, logout} = useStrava();
+  const {resetProgress} = useMystLoc();
+
+  const resetAlert = () => {
+    Alert.alert(
+      'Are you sure you want to erase all information?',
+      'This will delete all activities, discoveries, and progress stored in PicQuest. Your profile will still be available.',
+      [{text: 'Cancel'}, {text: 'Yes', onPress: () => resetProgress()}]
+    );
+  }
 
 
   return (
@@ -43,6 +53,7 @@ export default function SettingsScreen() {
               <Text style={{color:colors.text}}>Connected with your Strava account</Text>
             </View>
           </View>
+          <TouchableOpacity style={[styles.button, {backgroundColor: 'gray'}]} onPress={() => {Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); resetAlert()}}><Text style={styles.buttonText}>Reset Progress</Text></TouchableOpacity>
           <TouchableOpacity style={styles.button} onPress={() => {Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); logout()}}><Text style={styles.buttonText}>Sign Out</Text></TouchableOpacity>
         </Animated.View>
     </SafeAreaView>
@@ -75,7 +86,7 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     fontFamily: 'Radio Canada Big',
     margin: 20,
-    gap: 15,
+    gap: 5,
     alignItems: 'center'
   },
   row: {

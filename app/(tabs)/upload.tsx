@@ -60,11 +60,12 @@ export default function TabTwoScreen() {
     setCoords(decoded);
     // setFoundSpots(checkInRadius(currCoords));
     setFoundSpots(checkInRadius(decoded));
+    console.log(foundSpots);
   };
 
 
   // Mystery Locations
-  const {mysteryLocations, checkInRadius, newLocs, addLocation} = useMystLoc();
+  const {mysteryLocations, checkInRadius, newLocs, addLocation, addActivity} = useMystLoc();
   const [dropdownState, setDropdownState] = useState(false);
 
 
@@ -86,6 +87,17 @@ export default function TabTwoScreen() {
     let seconds = secs%60;
 
     return `${hours>0? String(hours).padStart(2, '0') + ':' : ''}${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }
+
+  function retSpotNames(list) {
+    let result = "";
+    for (let i = 0; i < list.length; i++) {
+      if (result != "") {
+        result+=", ";
+      }
+      result+=list[i].name;
+    }
+    return result;
   }
 
   const activityComp = ({ item, index }) => {
@@ -137,9 +149,9 @@ export default function TabTwoScreen() {
                     <Text style={styles.buttonText}>Mystery Locations   ▼</Text>
                   </TouchableOpacity>
                   <Collapsible collapsed={dropdownState}>
-                    <Text style={[styles.textStyle, {fontWeight: 100, fontSize: 15, color: colors.text}]}>{`Found Spots: ${foundSpots[0]}`}</Text>
+                    <Text style={[styles.textStyle, {fontWeight: 100, fontSize: 15, color: colors.text}]}>{`${foundSpots.length == 0 ? "No spots found." : "Found Spots: " + retSpotNames(foundSpots)}`}</Text>
                   </Collapsible>
-                  <TouchableOpacity onPress={() => selectActivity(null)} style={[styles.button]}>
+                  <TouchableOpacity onPress={() => {addActivity(selectedActivity); addLocation(foundSpots); selectActivity(null)}} style={[styles.button]}>
                     <Text style={styles.buttonText}>Upload</Text>
                   </TouchableOpacity>
                   <TouchableOpacity onPress={() => selectActivity(null)} style={[styles.button, {backgroundColor: 'gray'}]}>
