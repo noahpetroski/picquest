@@ -10,6 +10,9 @@ import Animated, { FadeInDown, FadeIn, FadeInUp } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics';
 
 export default function TabTwoScreen() {
+  // Mystery Locations
+  const {mysteryLocations, myActivities, checkInRadius, newLocs, addLocation, addActivity} = useMystLoc();
+  const [dropdownState, setDropdownState] = useState(false);
 
   // Style Settings
   const pqLogoSrc = require('@/assets/images/PQ-white.png');
@@ -35,18 +38,25 @@ export default function TabTwoScreen() {
   const {athlete, fetchFromStrava} = useStrava();
 
   const [activities, setActivities] = useState([]);
+  const [newActivities, setNewActivities] = useState([]);
 
-  useEffect(() => {
+// Fetch once when athlete loads
+useEffect(() => {
     const loadActivities = async () => {
-      // const acts = await fetchFromStrava(`athlete/activities`);
-      const acts = await fetchFromStrava(`/athletes/${athlete?.id}/activities`);
-      setActivities(acts);
+        const acts = await fetchFromStrava(`/athletes/${athlete?.id}/activities`);
+        setActivities(acts);
     };
+    if (athlete?.id) loadActivities();
+}, [athlete]);
 
-    if (athlete?.id) {
-      loadActivities();
-    }
-  }, [athlete]);
+// Refilter whenever activities or myActivities changes
+useEffect(() => {
+    if (activities.length === 0) return;
+    const filtered = activities.filter(a =>
+        !myActivities.some(ma => ma.id === a.id)
+    );
+    setNewActivities(filtered);
+}, [activities, myActivities]);
 
   const [selectedActivity, selectActivity] = useState(null);
   const [currCoords, setCoords] = useState([]);
@@ -60,13 +70,7 @@ export default function TabTwoScreen() {
     setCoords(decoded);
     // setFoundSpots(checkInRadius(currCoords));
     setFoundSpots(checkInRadius(decoded));
-    console.log(foundSpots);
   };
-
-
-  // Mystery Locations
-  const {mysteryLocations, checkInRadius, newLocs, addLocation, addActivity} = useMystLoc();
-  const [dropdownState, setDropdownState] = useState(false);
 
 
   // Map Stuff
@@ -78,7 +82,7 @@ export default function TabTwoScreen() {
 
   function convertDate(isoInput) {
     let date = new Date(isoInput);
-    return date.toLocaleString();
+    return date.toLocaleDateString() + " - " + date.getHours() % 12 + ":" + date.getMinutes() + (date.getHours() >= 12 ? " PM" : " AM") ;
   }
 
   function formatSeconds(secs) {
@@ -103,12 +107,12 @@ export default function TabTwoScreen() {
   const activityComp = ({ item, index }) => {
     return (
       <Animated.View entering={FadeInDown.delay(index*100)}>
-        <TouchableOpacity onPress={() => {Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid); pickActivity(item)}} style={[styles.stats, {marginBottom: 10}]}>
-          <View>
+        <TouchableOpacity onPress={() => {Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid); pickActivity(item)}} style={[styles.stats, {marginBottom: 10, display: 'flex', flexDirection: 'row'}]}>
+          <View style={[{display: 'flex', flexDirection: 'column'}]}>
             <Text style={[{fontWeight: 500, color: colors.text}]}>{item.name}</Text>
             <Text style={[{fontWeight: 300, color: colors.text}]}>{`${meterToMile(item.distance)} mi`}</Text>
             <Text style={[{fontWeight: 300, color: colors.text}]}>{convertDate(item.start_date)}</Text>
-            </View>
+          </View>
         </TouchableOpacity>
       </Animated.View>
     )
@@ -119,7 +123,7 @@ export default function TabTwoScreen() {
             <Animated.View style={[styles.body, {backgroundColor: colors.background, height: '100%'}]} entering={FadeInDown.duration(1000)}>
               {selectedActivity != null ?
                 <Animated.View style={[{width: '100%', display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center'}]} entering={FadeIn.duration(1000)}>
-                  <Text style={[styles.textStyle, styles.head, {color: colors.text}]}>Upload Activity</Text>
+                  <Text style={[styles.textStyle, styles.head, {color: colors.text}]}>Add Activity</Text>
                   {currCoords.length != 0 ?
                     <MapView
                       style={styles.mapPreview}
@@ -152,18 +156,18 @@ export default function TabTwoScreen() {
                     <Text style={[styles.textStyle, {fontWeight: 100, fontSize: 15, color: colors.text}]}>{`${foundSpots.length == 0 ? "No spots found." : "Found Spots: " + retSpotNames(foundSpots)}`}</Text>
                   </Collapsible>
                   <TouchableOpacity onPress={() => {addActivity(selectedActivity); addLocation(foundSpots); selectActivity(null)}} style={[styles.button]}>
-                    <Text style={styles.buttonText}>Upload</Text>
+                    <Text style={styles.buttonText}>Add</Text>
                   </TouchableOpacity>
                   <TouchableOpacity onPress={() => selectActivity(null)} style={[styles.button, {backgroundColor: 'gray'}]}>
-                    <Text style={styles.buttonText}>Cancel Upload</Text>
+                    <Text style={styles.buttonText}>Cancel Add</Text>
                   </TouchableOpacity>
                 </Animated.View>
                 :
                 <View style={[{width: '100%', gap: 10}]}>
-                  <Text style={[styles.textStyle, styles.head, {color: colors.text}]}>Upload Activity</Text>
+                  <Text style={[styles.textStyle, styles.head, {color: colors.text}]}>Add Activity</Text>
                   <Text style={[styles.textStyle, {color: colors.text}]}>Select one of your recent activities.</Text>
                   <View style={[{display: 'flex', flexDirection: 'column', width: '100%'}]}>
-                    <FlatList scrollEnabled={false} style={[{width: '100%'}]} data={activities} renderItem={activityComp} keyExtractor={item => item.id} />
+                    <FlatList scrollEnabled={false} style={[{width: '100%'}]} data={newActivities} renderItem={activityComp} keyExtractor={item => item.id} />
                   </View>
                 </View>
               }

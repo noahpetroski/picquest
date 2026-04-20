@@ -54,7 +54,7 @@ export default function SettingsScreen() {
             </View>
           </View>
           <TouchableOpacity style={[styles.button, {backgroundColor: 'gray'}]} onPress={() => {Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); resetAlert()}}><Text style={styles.buttonText}>Reset Progress</Text></TouchableOpacity>
-          <TouchableOpacity style={styles.button} onPress={() => {Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); logout()}}><Text style={styles.buttonText}>Sign Out</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.button} onPress={() => {Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); logout();}}><Text style={styles.buttonText}>Sign Out</Text></TouchableOpacity>
         </Animated.View>
     </SafeAreaView>
   );

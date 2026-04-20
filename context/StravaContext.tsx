@@ -153,11 +153,11 @@ export function StravaProvider({ children }) {
   const login = () => promptAsync();
 
   const logout = async () => {
+    setAthlete(null);
+    setAuthentication(null);
     await SecureStore.deleteItemAsync('strava_access_token');
     await SecureStore.deleteItemAsync('strava_refresh_token');
     await SecureStore.deleteItemAsync('strava_token_expiry');
-    setAthlete(null);
-    setAuthentication(null);
   }
 
   return (
