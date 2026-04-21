@@ -9,7 +9,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useMystLoc } from '@/context/MystLocContext';
 import * as Location from 'expo-location';
 // import polyline from '@mapbox/polyline';
-import MapView, { Marker, Polygon } from 'react-native-maps';
+import MapView, { Circle, Marker, Polygon } from 'react-native-maps';
 import { runOnJS, scheduleOnRN } from 'react-native-worklets';
 import { ExpandingDot } from 'react-native-animated-pagination-dots';
 
@@ -154,38 +154,39 @@ export default function HomeScreen() {
   }
 
   const [selectedLocation, selectNewLocation] = useState(null);
-  const [polygonCoords, setPolygonCoords] = useState<{ latitude: number; longitude: number }[]>([]);
+  const [locationRadius, setLocationRadius] = useState(0);
   // add ability to look at picture of location when searching
   // add pagination
 
-  function getMapPolygon(radius) {
-    let numCoords = 20;
-    let newCoords = [];
-    const angle = 2 * Math.PI / numCoords;
-    for (let i = 0; i < numCoords; i++) {
-      let newLat = myLocation.latitude + (radius * Math.cos(i * angle));
-      let newLon = myLocation.longitude + (radius * Math.sin(i * angle));
-      newCoords.push({latitude: newLat, longitude: newLon});
-    }
-    setPolygonCoords(newCoords);
-  }
+  // function getMapPolygon(radius) {
+  //   let numCoords = 20;
+  //   let newCoords = [];
+  //   const angle = 2 * Math.PI / numCoords;
+  //   for (let i = 0; i < numCoords; i++) {
+  //     let newLat = myLocation.latitude + (radius * Math.cos(i * angle));
+  //     let newLon = myLocation.longitude + (radius * Math.sin(i * angle));
+  //     newCoords.push({latitude: newLat, longitude: newLon});
+  //   }
+  //   setPolygonCoords(newCoords);
+  // }
 
   const locationComp = ({ item, index }) => {
     return (
       <Animated.View entering={FadeInDown.delay(index*100)}>
-        <TouchableOpacity onPress={() => {Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid); selectNewLocation(item); getMapPolygon(getDistanceAway(item));}} style={[styles.stats, {marginBottom: 10}]}>
+        <TouchableOpacity onPress={() => {Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid); selectNewLocation(item); setLocationRadius(parseFloat(getDistanceAway(item))/0.000621371); console.log(locationRadius)}} style={[styles.stats, {marginBottom: 10}]}>
           {selectedLocation == item ? 
-            <View>
-              <Text style={[{fontWeight: 500, color: colors.text}]}>{item.name}</Text>
-              <Text style={[{fontWeight: 200, color: colors.text}]}>{getDistanceAway(item)} mi away</Text>
-            </View>
-          :
-            <View style={[{display: 'flex', flexDirection: 'row'}]}>
-              <Image source={item.image}/>
-              <View style={[{display: 'flex', flexDirection: 'column'}]}>
+            <View style={[{display: 'flex', flexDirection: 'row', gap: 10}]}>
+              <Image style={[{width: 200, height: 200, borderRadius: 20}]} source={item.image}/>
+              <View style={[{display: 'flex', flexDirection: 'column', maxWidth: 100}]}>
                 <Text style={[{fontWeight: 500, color: colors.text}]}>{item.name}</Text>
                 <Text style={[{fontWeight: 200, color: colors.text}]}>{getDistanceAway(item)} mi away</Text>
               </View>
+            </View>
+            
+          :
+            <View>
+              <Text style={[{fontWeight: 500, color: colors.text}]}>{item.name}</Text>
+              <Text style={[{fontWeight: 200, color: colors.text}]}>{getDistanceAway(item)} mi away</Text>
             </View>
           }
         </TouchableOpacity>
@@ -343,16 +344,23 @@ export default function HomeScreen() {
             coordinate={myLocation} 
             title="my location"
           />
-          <Polygon
+          {/* <Polygon
             coordinates={polygonCoords}
             fillColor="rgba(100, 200, 200, 0.5)" // Semi-transparent fill
             strokeColor="#000" // Border color
             strokeWidth={2}
+          /> */}
+          <Circle
+            center={myLocation}
+            radius={locationRadius} // 1 kilometer
+            strokeColor="rgb(rgba(103,160,159)"
+            fillColor="rgba(103,160,159,0.5)"
           />
         </MapView>
         <View style={[styles.bodyEl, {display: 'flex', flexDirection: 'column'}]}>
           <Text style={[styles.sectBody, {marginBottom: 10}]}>Locations near you:</Text>
           <FlatList scrollEnabled={false} style={[{width: '100%'}]} data={newLocs} renderItem={locationComp} keyExtractor={item => item.id} />
+          <View style={styles.spacer}></View>
         </View>
       </Animated.View>
     );
@@ -383,6 +391,9 @@ const styles = StyleSheet.create({
     width: 150,
     height: 150,
     borderRadius: 100,
+  },
+  spacer: {
+    height: 60,
   },
   carouselImage: {
     height: 400,

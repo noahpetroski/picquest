@@ -1,12 +1,12 @@
 import { useFonts } from 'expo-font';
 import React, { useEffect, useState } from 'react';
-import { SafeAreaView, TouchableOpacity, ScrollView, StyleSheet, Text, FlatList, TextInput, useColorScheme, View } from 'react-native';
+import { SafeAreaView, TouchableOpacity, ScrollView, StyleSheet, Text, FlatList, TextInput, useColorScheme, View, useAnimatedValue } from 'react-native';
 import { useStrava } from '@/context/StravaContext';
 import { useMystLoc } from '@/context/MystLocContext';
 import polyline from '@mapbox/polyline';
 import MapView, { Polyline } from 'react-native-maps';
 import Collapsible from 'react-native-collapsible';
-import Animated, { FadeInDown, FadeIn, FadeInUp } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeIn, FadeInUp, useSharedValue, withTiming, useAnimatedStyle } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
 export default function TabTwoScreen() {
@@ -16,6 +16,7 @@ export default function TabTwoScreen() {
 
   // Style Settings
   const pqLogoSrc = require('@/assets/images/PQ-white.png');
+  const [mysteryWindow, setMysteryWindow] = useState("closed");
 
   const [fontsLoaded] = useFonts({
     'Radio Canada Big':require('../../assets/fonts/Radio_Canada_Big/RadioCanadaBig.ttf')
@@ -104,14 +105,118 @@ useEffect(() => {
     return result;
   }
 
+  // Animation
+  const fadeInAnim = useSharedValue(0);
+  const floatInAnim = useSharedValue(20);
+  const floatInAnimN = useSharedValue(-20);
+  const v1Src = require('@/assets/images/m-vec1.png');
+  const v2Src = require('@/assets/images/m-vec2.png');
+  const quest = require('@/assets/images/question.png');
+
+  useEffect(() => {
+    fadeInAnim.value = withTiming(1, { duration: 2000 });
+    floatInAnim.value = withTiming(0, { duration: 2000 });
+    floatInAnimN.value = withTiming(0, { duration: 2000 });
+  }, []);
+
+  const fadeStyle = useAnimatedStyle(() => ({
+    opacity: fadeInAnim.value,
+  }));
+
+  const floatStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: floatInAnim.value }],
+  }));
+
+  const floatStyleN = useAnimatedStyle(() => ({
+    transform: [{ translateX: floatInAnimN.value }],
+  }));
+
+  const FoundSpotIcon = ({ item, index }) => {
+    return (
+      <Animated.View style={styles.foundLoc} entering={FadeInDown.delay(index*100)}>
+        <Animated.Image style={[{width: 70, height: 70, borderRadius: 35}]} source={item.image} />
+        <Text style={[{fontFamily: 'Radio Canada Big', fontWeight: 500, color: colors.text}]}>{`${item.name}`}</Text>
+      </Animated.View>
+    );
+  } 
+
+function MysterySpotReveal() {
+  const isVisible = useSharedValue(false);
+  const revealOpacity = useSharedValue(0);
+  const questOpacity = useSharedValue(1);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      isVisible.value = true;
+      revealOpacity.value = withTiming(1, { duration: 800 });
+      questOpacity.value = withTiming(0, { duration: 400 });
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const revealStyle = useAnimatedStyle(() => ({
+    opacity: revealOpacity.value,
+  }));
+
+  const questStyle = useAnimatedStyle(() => ({
+    opacity: questOpacity.value,
+  }));
+
+  return (
+    <Animated.View style={[{height: '100%'}]} entering={FadeInDown.duration(1000)}>
+      <Animated.Image style={[fadeStyle, floatStyle, {position: 'absolute', objectFit: 'contain', flex: 1, maxWidth: '100%', maxHeight: '100%', top: 0, right: 100, opacity: fadeInAnim, transform: [{translateX: floatInAnimN}, {translateY: floatInAnim}, {rotate: '-10deg'}]}]} source={v1Src} />
+      <Animated.Image style={[fadeStyle, floatStyleN, {position: 'absolute', objectFit: 'contain', flex: 1, maxWidth: '120%', maxHeight: '120%', top: 170, right: 0, opacity: fadeInAnim, transform: [{translateX: floatInAnim}, {translateY: floatInAnim}]}]} source={v2Src} />
+
+      {/* Question marks — always rendered, fade out after timer */}
+      <Animated.View style={[questStyle, { position: 'absolute', width: '100%', height: '100%' }]}>
+        
+        <Animated.Image style={[{position: 'absolute', objectFit: 'contain', flex: 1, maxWidth: '30%', maxHeight: '120%', top: -100, left: '38%', transform: [{translateX: floatInAnim}, {translateY: floatInAnim}]}]} source={quest} />
+        <Animated.Image style={[{position: 'absolute', objectFit: 'contain', flex: 1, maxWidth: '20%', maxHeight: '120%', top: 0, left: '10%', transform: [{translateX: floatInAnim}, {translateY: floatInAnim}, {rotate: '-20deg'}]}]} source={quest} />
+        <Animated.Image style={[{position: 'absolute', objectFit: 'contain', flex: 1, maxWidth: '14%', maxHeight: '120%', top: 70, left: '70%', transform: [{translateX: floatInAnim}, {translateY: floatInAnim}, {rotate: '10deg'}]}]} source={quest} />
+      </Animated.View>
+
+      <View style={[styles.body, {height: '100%'}]}>
+        <Animated.View style={[{opacity: fadeInAnim, transform: [{translateY: floatInAnim}]}]}>
+          <Text style={[styles.head, {color: colors.text}]}>Discoveries</Text>
+          {/* Discovered text — fades in after timer */}
+          <Animated.View style={[revealStyle]}>
+            <View style={[{height: 100}]}></View>
+            {foundSpots.length == 0 ?
+              <Text style={[styles.textStyle, {fontWeight: 100, fontSize: 15, color: colors.text, textAlign: 'center'}]}>No spots found.</Text>
+              :
+              <View>
+                <FlatList scrollEnabled={true} style={[{width: '100%', maxHeight: 300}]} data={foundSpots} renderItem={FoundSpotIcon} keyExtractor={item => item.id} />
+              </View>
+            }
+          </Animated.View>
+        </Animated.View>
+        <Animated.View style={[fadeStyle, floatStyle, {width: '100%', opacity: fadeInAnim, transform: [{translateY: floatInAnim}]}]}>
+          {/* Continue button — fades in after timer */}
+          <Animated.View style={[revealStyle]}>
+            <TouchableOpacity
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setMysteryWindow("closed"); }}
+              style={styles.button2}
+            >
+              <Text style={styles.buttonText2}>Continue</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </Animated.View>
+      </View>
+    </Animated.View>
+  );
+}
+
   const activityComp = ({ item, index }) => {
     return (
       <Animated.View entering={FadeInDown.delay(index*100)}>
         <TouchableOpacity onPress={() => {Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid); pickActivity(item)}} style={[styles.stats, {marginBottom: 10, display: 'flex', flexDirection: 'row'}]}>
-          <View style={[{display: 'flex', flexDirection: 'column'}]}>
-            <Text style={[{fontWeight: 500, color: colors.text}]}>{item.name}</Text>
-            <Text style={[{fontWeight: 300, color: colors.text}]}>{`${meterToMile(item.distance)} mi`}</Text>
-            <Text style={[{fontWeight: 300, color: colors.text}]}>{convertDate(item.start_date)}</Text>
+          <View style={[{display: 'flex', flexDirection: 'row', gap: 10}]}>
+            <View style={[{display: 'flex', flexDirection: 'column'}]}>
+              <Text style={[{fontWeight: 500, color: colors.text}]}>{item.name}</Text>
+              <Text style={[{fontWeight: 300, color: colors.text}]}>{`${meterToMile(item.distance)} mi`}</Text>
+              <Text style={[{fontWeight: 300, color: colors.text}]}>{convertDate(item.start_date)}</Text>
+            </View>
+
           </View>
         </TouchableOpacity>
       </Animated.View>
@@ -120,58 +225,59 @@ useEffect(() => {
   
     return (
       <SafeAreaView style={[{backgroundColor: colors.background}]}>
-            <Animated.View style={[styles.body, {backgroundColor: colors.background, height: '100%'}]} entering={FadeInDown.duration(1000)}>
-              {selectedActivity != null ?
-                <Animated.View style={[{width: '100%', display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center'}]} entering={FadeIn.duration(1000)}>
-                  <Text style={[styles.textStyle, styles.head, {color: colors.text}]}>Add Activity</Text>
-                  {currCoords.length != 0 ?
-                    <MapView
-                      style={styles.mapPreview}
-                      region={currCoords.length > 0 ? {
-                        latitude: currCoords[0].latitude,
-                        longitude: currCoords[0].longitude,
-                        latitudeDelta: 0.05,
-                        longitudeDelta: 0.05,
-                      } : undefined}> 
-                      {currCoords.length > 0 && (
-                      <Polyline
-                        coordinates={currCoords} 
-                        strokeColor="rgb(233, 192, 9)"
-                        strokeWidth={3}
-                      />
-                    )}
-                    </MapView>
+            {mysteryWindow == "closed" ?
+              <Animated.View style={[styles.body, {backgroundColor: colors.background, height: '100%'}]} entering={FadeInDown.duration(1000)}>
+                {selectedActivity != null ?
+                  <Animated.View style={[{width: '100%', display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center'}]} entering={FadeIn.duration(1000)}>
+                    <Text style={[styles.textStyle, styles.head, {color: colors.text}]}>Add Activity</Text>
+                    {currCoords.length != 0 ?
+                      <MapView
+                        style={styles.mapPreview}
+                        region={currCoords.length > 0 ? {
+                          latitude: currCoords[0].latitude,
+                          longitude: currCoords[0].longitude,
+                          latitudeDelta: 0.05,
+                          longitudeDelta: 0.05,
+                        } : undefined}> 
+                        {currCoords.length > 0 && (
+                        <Polyline
+                          coordinates={currCoords} 
+                          strokeColor="rgb(233, 192, 9)"
+                          strokeWidth={3}
+                        />
+                      )}
+                      </MapView>
+                    :
+                      <View style={styles.mapPreview}>
+                        <Text style={[styles.textStyle, {color: colors.text}]}>No map preview available</Text>
+                      </View>
+                    }
+                    <Text style={[styles.textStyle, {fontWeight: 600, fontSize: 20, color: colors.text}]}>{selectedActivity?.name}</Text>
+                    <Text style={[styles.textStyle, {fontWeight: 100, fontSize: 19, color: colors.text}]}>{`${meterToMile(selectedActivity.distance)} MI    |    ${formatSeconds(selectedActivity.elapsed_time)}    |    ${selectedActivity.total_elevation_gain} FT`}</Text>
+                    <View style={[{width: '90%', backgroundColor: 'gray', opacity: 0.5, height: 1, marginTop: 10, marginBottom: 10}]}></View>
+                    {/* <TouchableOpacity onPress={() => setDropdownState(!dropdownState)} style={[styles.dropdownbtn]}> */}
+                    <TouchableOpacity onPress={() => {setMysteryWindow("open");}} style={[styles.dropdownbtn]}>
+                      <Text style={styles.buttonText}>Mystery Locations   ▼</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => {addActivity(selectedActivity); addLocation(foundSpots); selectActivity(null)}} style={[styles.button]}>
+                      <Text style={styles.buttonText}>Add</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => selectActivity(null)} style={[styles.button, {backgroundColor: 'gray'}]}>
+                      <Text style={styles.buttonText}>Cancel Add</Text>
+                    </TouchableOpacity>
+                  </Animated.View>
                   :
-                    <View style={styles.mapPreview}>
-                      <Text style={[styles.textStyle, {color: colors.text}]}>No map preview available</Text>
+                  <View style={[{width: '100%', gap: 10}]}>
+                    <Text style={[styles.textStyle, styles.head, {color: colors.text}]}>Add Activity</Text>
+                    <Text style={[styles.textStyle, {color: colors.text}]}>Select one of your recent activities.</Text>
+                    <View style={[{display: 'flex', flexDirection: 'column', width: '100%'}]}>
+                      <FlatList scrollEnabled={false} style={[{width: '100%'}]} data={newActivities} renderItem={activityComp} keyExtractor={item => item.id} />
                     </View>
-                  }
-                  <Text style={[styles.textStyle, {fontWeight: 600, fontSize: 20, color: colors.text}]}>{selectedActivity?.name}</Text>
-                  <Text style={[styles.textStyle, {fontWeight: 100, fontSize: 19, color: colors.text}]}>{`${meterToMile(selectedActivity.distance)} MI    |    ${formatSeconds(selectedActivity.elapsed_time)}    |    ${selectedActivity.total_elevation_gain} FT`}</Text>
-                  <View style={[{width: '90%', backgroundColor: 'gray', opacity: 0.5, height: 1, marginTop: 10, marginBottom: 10}]}></View>
-                  <TouchableOpacity onPress={() => setDropdownState(!dropdownState)} style={[styles.dropdownbtn]}>
-                    <Text style={styles.buttonText}>Mystery Locations   ▼</Text>
-                  </TouchableOpacity>
-                  <Collapsible collapsed={dropdownState}>
-                    <Text style={[styles.textStyle, {fontWeight: 100, fontSize: 15, color: colors.text}]}>{`${foundSpots.length == 0 ? "No spots found." : "Found Spots: " + retSpotNames(foundSpots)}`}</Text>
-                  </Collapsible>
-                  <TouchableOpacity onPress={() => {addActivity(selectedActivity); addLocation(foundSpots); selectActivity(null)}} style={[styles.button]}>
-                    <Text style={styles.buttonText}>Add</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => selectActivity(null)} style={[styles.button, {backgroundColor: 'gray'}]}>
-                    <Text style={styles.buttonText}>Cancel Add</Text>
-                  </TouchableOpacity>
-                </Animated.View>
-                :
-                <View style={[{width: '100%', gap: 10}]}>
-                  <Text style={[styles.textStyle, styles.head, {color: colors.text}]}>Add Activity</Text>
-                  <Text style={[styles.textStyle, {color: colors.text}]}>Select one of your recent activities.</Text>
-                  <View style={[{display: 'flex', flexDirection: 'column', width: '100%'}]}>
-                    <FlatList scrollEnabled={false} style={[{width: '100%'}]} data={newActivities} renderItem={activityComp} keyExtractor={item => item.id} />
                   </View>
-                </View>
-              }
-          </Animated.View>
+                }
+            </Animated.View>
+            : <MysterySpotReveal></MysterySpotReveal>
+          }
       </SafeAreaView>
     );
 }
@@ -183,6 +289,17 @@ const styles = StyleSheet.create({
     gap: 15,
     fontFamily: 'Radio Canada Big',
     alignItems: 'center',
+  },
+  foundLoc: {
+    display: 'flex', 
+    flexDirection: 'row', 
+    width: '95%',
+    justifyContent: 'center', 
+    alignItems: 'center', gap: 10, 
+    margin: 10, backgroundColor: 'rgba(133, 133, 133, 0.3)', 
+    padding: 15, 
+    borderRadius: 30,
+    boxShadow: '0px 4px 6px rgba(0, 0, 0, 0.1)',
   },
   mapPreview: {
     width: '100%',
@@ -212,6 +329,19 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(80, 119, 142, 1)',
     borderRadius: 10,
     padding: 10,
+  },
+  button2: {
+    width: '100%',
+    opacity: 0.5,
+    backgroundColor: 'white',
+    borderRadius: 10,
+    padding: 10,
+    top: 0,
+  },
+  buttonText2: {
+    color: 'rgba(80, 119, 142, 1)',
+    textAlign: 'center',
+    fontSize: 17,
   },
   buttonText: {
     color: 'white',

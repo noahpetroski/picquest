@@ -8,11 +8,11 @@ const STORAGE_KEYS = {
 };
 
 const MYSTERY_LOCATIONS = [
-    { id: 1, latitude: 38.987305, longitude: -76.924149, name: 'Lake Loop',    image: require('@/assets/images/myst-locs/lake-loop.png'),   date: '' },
-    { id: 2, latitude: 38.988015, longitude: -76.949653, name: 'Kehoe Track',  image: require('@/assets/images/myst-locs/kehoe-track.png'), date: '' },
-    { id: 3, latitude: 38.993379, longitude: -76.942130, name: 'SPH Overhang', image: require('@/assets/images/myst-locs/sph.png'),          date: '' },
-    { id: 4, latitude: 38.998737, longitude: -76.932851, name: 'Acredale',     image: require('@/assets/images/myst-locs/acredale.png'),     date: '' },
-    { id: 5, latitude: 38.986017, longitude: -76.942550, name: 'McKeldin',     image: require('@/assets/images/myst-locs/mckeldin.png'),     date: '' },
+    { id: 1, latitude: 38.987305, longitude: -76.924149, name: 'Misty Hollow Loop',    image: require('@/assets/images/myst-locs/lake-loop.png'),   date: '' },
+    { id: 2, latitude: 38.988015, longitude: -76.949653, name: 'Crimson Stride Circle',  image: require('@/assets/images/myst-locs/kehoe-track.png'), date: '' },
+    { id: 3, latitude: 38.993379, longitude: -76.942130, name: 'Shadowy Pulse Hang', image: require('@/assets/images/myst-locs/sph.png'),          date: '' },
+    { id: 4, latitude: 38.998737, longitude: -76.932851, name: 'Golden Acre Grove',     image: require('@/assets/images/myst-locs/acredale.png'),     date: '' },
+    { id: 5, latitude: 38.986017, longitude: -76.942550, name: 'Whispering Field Plaza',     image: require('@/assets/images/myst-locs/mckeldin.png'),     date: '' },
 ];
   
 
