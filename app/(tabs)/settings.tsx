@@ -54,6 +54,12 @@ export default function SettingsScreen() {
             </View>
           </View>
           <TouchableOpacity style={[styles.button, {backgroundColor: 'gray'}]} onPress={() => {Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); resetAlert()}}><Text style={styles.buttonText}>Reset Progress</Text></TouchableOpacity>
+          <View style={styles.row}>
+            <Checkbox value={sendPQ} onValueChange={changeSendPQ} color={sendPQ ? '#50778E' : undefined}/>
+            <Text style={[{color: colors.text}]}>Allow PicQuest to edit Strava activity descriptions</Text>
+
+          </View>
+          <TouchableOpacity style={[styles.button, {backgroundColor: 'gray'}]} onPress={() => {Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); resetAlert();}}><Text style={styles.buttonText}>Reset Progress</Text></TouchableOpacity>
           <TouchableOpacity style={styles.button} onPress={() => {Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); logout();}}><Text style={styles.buttonText}>Sign Out</Text></TouchableOpacity>
         </Animated.View>
     </SafeAreaView>

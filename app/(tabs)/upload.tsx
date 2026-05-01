@@ -2,11 +2,13 @@ import { useFonts } from 'expo-font';
 import React, { useEffect, useState } from 'react';
 import { SafeAreaView, TouchableOpacity, ScrollView, StyleSheet, Text, FlatList, TextInput, useColorScheme, View, useAnimatedValue } from 'react-native';
 import { useStrava } from '@/context/StravaContext';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useMystLoc } from '@/context/MystLocContext';
 import polyline from '@mapbox/polyline';
 import MapView, { Polyline } from 'react-native-maps';
 import Collapsible from 'react-native-collapsible';
 import Animated, { FadeInDown, FadeIn, FadeInUp, useSharedValue, withTiming, useAnimatedStyle } from 'react-native-reanimated';
+import { useFonts } from 'expo-font';
 import * as Haptics from 'expo-haptics';
 
 export default function TabTwoScreen() {
@@ -71,6 +73,7 @@ useEffect(() => {
     setCoords(decoded);
     // setFoundSpots(checkInRadius(currCoords));
     setFoundSpots(checkInRadius(decoded));
+    setShowMysterySpot(false);
   };
 
 
@@ -212,6 +215,10 @@ function MysterySpotReveal() {
         <TouchableOpacity onPress={() => {Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid); pickActivity(item)}} style={[styles.stats, {marginBottom: 10, display: 'flex', flexDirection: 'row'}]}>
           <View style={[{display: 'flex', flexDirection: 'row', gap: 10}]}>
             <View style={[{display: 'flex', flexDirection: 'column'}]}>
+      <Animated.View style={[{width: '100%'}]} entering={FadeInDown.delay(index*100)}>
+        <TouchableOpacity onPress={() => {Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid); pickActivity(item)}} style={[styles.stats, {width: '100%', marginBottom: 10, display: 'flex', flexDirection: 'row'}]}>
+          <View style={[{display: 'flex', width: '100%', flexDirection: 'row', gap: 10}]}>
+            <View style={[{display: 'flex', flexDirection: 'column', flex: 1}]}>
               <Text style={[{fontWeight: 500, color: colors.text}]}>{item.name}</Text>
               <Text style={[{fontWeight: 300, color: colors.text}]}>{`${meterToMile(item.distance)} mi`}</Text>
               <Text style={[{fontWeight: 300, color: colors.text}]}>{convertDate(item.start_date)}</Text>
@@ -225,6 +232,8 @@ function MysterySpotReveal() {
   
     return (
       <SafeAreaView style={[{backgroundColor: colors.background}]}>
+=======
+        <ScrollView style={{height: '100%'}}>
             {mysteryWindow == "closed" ?
               <Animated.View style={[styles.body, {backgroundColor: colors.background, height: '100%'}]} entering={FadeInDown.duration(1000)}>
                 {selectedActivity != null ?
@@ -273,11 +282,32 @@ function MysterySpotReveal() {
                     <View style={[{display: 'flex', flexDirection: 'column', width: '100%'}]}>
                       <FlatList scrollEnabled={false} style={[{width: '100%'}]} data={newActivities} renderItem={activityComp} keyExtractor={item => item.id} />
                     </View>
+                  }
+                  <Text style={[styles.textStyle, {fontWeight: 600, fontSize: 20, color: colors.text}]}>{selectedActivity?.name}</Text>
+                  <Text style={[styles.textStyle, {fontWeight: 100, fontSize: 19, color: colors.text}]}>{`${meterToMile(selectedActivity.distance)} MI    |    ${formatSeconds(selectedActivity.elapsed_time)}    |    ${selectedActivity.total_elevation_gain} FT`}</Text>
+                  <View style={[{width: '90%', backgroundColor: 'gray', opacity: 0.5, height: 1, marginTop: 10, marginBottom: 10}]}></View>
+                  <TouchableOpacity onPress={() => setDropdownState(!dropdownState)} style={[styles.dropdownbtn]}>
+                    <Text style={styles.buttonText}>Mystery Locations   ▼</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => {addActivity(selectedActivity); addLocation(foundSpots); selectActivity(null)}} style={[styles.button]}>
+                    <Text style={styles.buttonText}>Upload</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => selectActivity(null)} style={[styles.button, {backgroundColor: 'gray'}]}>
+                    <Text style={styles.buttonText}>Cancel Upload</Text>
+                  </TouchableOpacity>
+                </Animated.View>
+                :
+                <View style={[{width: '100%', gap: 10}]}>
+                  <Text style={[styles.textStyle, styles.head, {color: colors.text}]}>Upload Activity</Text>
+                  <Text style={[styles.textStyle, {color: colors.text}]}>Select one of your recent activities.</Text>
+                  <View style={[{display: 'flex', flexDirection: 'column', width: '100%'}]}>
+                    <FlatList scrollEnabled={false} style={[{width: '100%'}]} data={activities} renderItem={activityComp} keyExtractor={item => item.id} />
                   </View>
                 }
             </Animated.View>
             : <MysterySpotReveal></MysterySpotReveal>
           }
+          </ScrollView>
       </SafeAreaView>
     );
 }

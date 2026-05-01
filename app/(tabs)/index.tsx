@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 import { Button, FlatList, ScrollView, TouchableOpacity, StyleSheet, Text, TextInput, useColorScheme, View, SafeAreaView, Image, Dimensions} from 'react-native';
 import { useFonts } from'expo-font';
 import React, { useState, useEffect, act, useRef } from 'react';
@@ -5,13 +6,23 @@ import { StravaProvider, useStrava } from '@/context/StravaContext';
 import { Redirect } from 'expo-router';
 import Animated, { FadeInDown, SlideInRight, ZoomIn, useSharedValue, useAnimatedScrollHandler, useAnimatedStyle, interpolate } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+=======
+>>>>>>> Stashed changes
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useMystLoc } from '@/context/MystLocContext';
 import * as Location from 'expo-location';
+<<<<<<< Updated upstream
 // import polyline from '@mapbox/polyline';
 import MapView, { Circle, Marker, Polygon } from 'react-native-maps';
 import { runOnJS, scheduleOnRN } from 'react-native-worklets';
 import { ExpandingDot } from 'react-native-animated-pagination-dots';
+=======
+import React, { useEffect, useState } from 'react';
+import { Dimensions, FlatList, Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, useColorScheme, View, RefreshControl} from 'react-native';
+import Animated, { FadeInDown, interpolate, SlideInDown, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
+import MapView, { Circle, Marker } from 'react-native-maps';
+import { runOnJS } from 'react-native-worklets';
+>>>>>>> Stashed changes
 
 export default function HomeScreen() {
   const [fontsLoaded] = useFonts({
@@ -52,6 +63,10 @@ export default function HomeScreen() {
       let thisLast = getThisWeekLastWeek();
       setThisWeekMile(thisLast.thisWeek[0]);
       setThisWeekTime(thisLast.thisWeek[1]);
+<<<<<<< Updated upstream
+=======
+      setThisWeekObjects(thisLast.thisWeek[2]);
+>>>>>>> Stashed changes
     }
   }, [athlete]);
 
@@ -99,10 +114,17 @@ export default function HomeScreen() {
     } else if (stat == 'time') {
       change = thisWeek[1] - lastWeek[1];
     } else { // switch to objs when i implement them
+<<<<<<< Updated upstream
       change = 0;
     }
     let trend = change;
     let ret = "";
+=======
+      change = thisWeek[2] - lastWeek[2];
+    }
+    let trend = change;
+    let ret;
+>>>>>>> Stashed changes
     if (trend > 0) {
       change = 'green';
       ret = `↗`;
@@ -182,6 +204,7 @@ export default function HomeScreen() {
                 <Text style={[{fontWeight: 200, color: colors.text}]}>{getDistanceAway(item)} mi away</Text>
               </View>
             </View>
+<<<<<<< Updated upstream
             
           :
             <View>
@@ -189,6 +212,14 @@ export default function HomeScreen() {
               <Text style={[{fontWeight: 200, color: colors.text}]}>{getDistanceAway(item)} mi away</Text>
             </View>
           }
+=======
+            :
+            <View style={[{display: 'flex', flexDirection: 'column', maxWidth: 100}]}>
+              <Text style={[{fontWeight: 500, color: colors.text}]}>{item.name}</Text>
+              <Text style={[{fontWeight: 200, color: colors.text}]}>{getDistanceAway(item)} mi away</Text>
+            </View>
+            }
+>>>>>>> Stashed changes
         </TouchableOpacity>
       </Animated.View>
     )
@@ -245,6 +276,7 @@ export default function HomeScreen() {
         decelerationRate="fast"
         contentContainerStyle={{ paddingHorizontal: sidePadding}}
         >
+<<<<<<< Updated upstream
           {myLocs.map((item, index) => (<CarouselItem item={item} index={index} scrollX={scrollX} key={index}></CarouselItem>))}
           {/* <ExpandingDot 
           data={myLocs}
@@ -261,6 +293,9 @@ export default function HomeScreen() {
           containerStyle={{
               top: 30,
           }}/> */}
+=======
+          {(myLocs.toReversed()).map((item, index) => (<CarouselItem item={item} index={index} scrollX={scrollX} key={index}></CarouselItem>))}
+>>>>>>> Stashed changes
       </Animated.ScrollView>
     )
   }
@@ -275,11 +310,27 @@ export default function HomeScreen() {
           <Text style={[styles.sectHead, {color: colors.text}]}>THIS WEEK:</Text>
           <View style={styles.row}>
             <Text style={[styles.sectBody]}>{"MILEAGE\nACTIVE TIME\nDISCOVERIES"}</Text>
+<<<<<<< Updated upstream
             <Text style={[styles.sectBody, {textAlign: 'right', flex: 1, color: colors.text}]}>{`${meterToMile(thisWeekMileage)} MI\n${secsToMin(thisWeekTime)} MIN\n ${myLocs.length}`}</Text>
             <View>
               <Text style={[styles.sectBody, {color: getColor('mile')}]}>{getArrow('mile')}</Text>
               <Text style={[styles.sectBody, {color: getColor('time')}]}>{getArrow('time')}</Text>
               <Text style={[styles.sectBody, {color: getColor('obj')}]}>{getArrow('obj')}</Text>
+=======
+            <View style={[{display: 'flex', flexDirection: 'column', flex: 1}]}>
+              <View style={[{display: 'flex', flexDirection: 'row', alignItems: 'center'}]}>
+                <Text style={[styles.sectBody, {marginRight: 5, textAlign: 'right', flex: 1, color: colors.text}]}>{`${meterToMile(thisWeekMileage)} MI`}</Text>
+                {getTrend('mile')}
+              </View>
+              <View style={[{display: 'flex', flexDirection: 'row', alignItems: 'center'}]}>
+                <Text style={[styles.sectBody, {marginRight: 5, textAlign: 'right', flex: 1, color: colors.text}]}>{`${secsToMin(thisWeekTime)} MIN`}</Text>
+                {getTrend('time')}
+              </View>
+              <View style={[{display: 'flex', flexDirection: 'row', alignItems: 'center'}]}>
+                <Text style={[styles.sectBody, {marginRight: 5, textAlign: 'right', flex: 1, color: colors.text}]}>{`${thisWeekObjects}`}</Text>
+                {getTrend('obj')}
+              </View>
+>>>>>>> Stashed changes
             </View>
           </View>
         </View>
@@ -319,7 +370,11 @@ export default function HomeScreen() {
           {myLocs.length > 0 ? <LocationsScroll></LocationsScroll> : <Text style={[styles.bodyEl, {color: 'grey', maxWidth: 350, fontSize: 16, textAlign: 'center'}]}>No locations yet! Try the discover button to look for new ones!</Text>}
         </View>
         <View style={[styles.body, styles.bodyEl]}>
+<<<<<<< Updated upstream
           <TouchableOpacity style={styles.button} onPress={() => setScreen('map')}><Text style={styles.buttonText}>Discover New</Text></TouchableOpacity>
+=======
+          <TouchableOpacity style={[styles.button, {backgroundColor: 'rgba(94, 141, 140, 1)'}]} onPress={() => setScreen('map')}><Text style={styles.buttonText}>Discover New</Text></TouchableOpacity>
+>>>>>>> Stashed changes
         </View>
       </Animated.View>
     );
@@ -344,12 +399,15 @@ export default function HomeScreen() {
             coordinate={myLocation} 
             title="my location"
           />
+<<<<<<< Updated upstream
           {/* <Polygon
             coordinates={polygonCoords}
             fillColor="rgba(100, 200, 200, 0.5)" // Semi-transparent fill
             strokeColor="#000" // Border color
             strokeWidth={2}
           /> */}
+=======
+>>>>>>> Stashed changes
           <Circle
             center={myLocation}
             radius={locationRadius} // 1 kilometer
@@ -368,6 +426,7 @@ export default function HomeScreen() {
   }
 
   return (
+<<<<<<< Updated upstream
     <SafeAreaView style={[{backgroundColor: colors.background, height: '100%', width: '100%'},]}>
       <ScrollView showsVerticalScrollIndicator={false}>
         {screenSetting == 'stats' ?
@@ -384,6 +443,40 @@ export default function HomeScreen() {
       </ScrollView>
     </SafeAreaView>
   );
+=======
+  <SafeAreaView style={[{ backgroundColor: colors.background, height: '100%', width: '100%' }]}>
+    <ScrollView showsVerticalScrollIndicator={false}>
+      <StatsView />
+    </ScrollView>
+
+    {/* Modal overlay views */}
+    {screenSetting !== 'stats' && (
+      <Animated.View
+        entering={SlideInDown.duration(800)}
+        style={{
+          position: 'absolute',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: colors.background,
+          zIndex: screenSetting !== 'stats' ? 10 : -1,
+          opacity: screenSetting !== 'stats' ? 1 : 0,
+          height: '100%',
+          margin: 0,
+          padding: 0,
+        }}
+      >
+        {screenSetting === 'map-all' ? (
+          <MyMapLocationsView />
+        ) : (
+          <ScrollView showsVerticalScrollIndicator={false} style={{ height: '100%', borderRadius: 20, marginTop: 30 }}>
+            {screenSetting === 'collection' && <CollectionView />}
+            {screenSetting === 'map' && <MyMapView />}
+          </ScrollView>
+        )}
+      </Animated.View>
+    )}
+  </SafeAreaView>
+);
+>>>>>>> Stashed changes
 }
 
 const styles = StyleSheet.create({
@@ -450,6 +543,16 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   body: {
+<<<<<<< Updated upstream
+=======
+    flexDirection: 'column',
+    fontFamily: 'Radio Canada Big',
+    margin: 20,
+    gap: 15,
+    alignItems: 'center',
+  },
+  bodyFull: {
+>>>>>>> Stashed changes
     display: 'flex',
     flexDirection: 'column',
     fontFamily: 'Radio Canada Big',
