@@ -24,7 +24,7 @@ export default function WelcomeScreen() {
 
   const {request, login} = useStrava();
 
-  const pqLogoSrc = require('@/assets/images/PQ-white.png');
+  const pqLogoSrc = colorScheme == 'dark' ? require('@/assets/images/PQ-white.png') : require('@/assets/images/PQ-black.png');
   const v1Src = require('@/assets/images/welcome-1.png');
   const v2Src = require('@/assets/images/welcome-2.png');
 
