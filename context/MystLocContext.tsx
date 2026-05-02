@@ -8,11 +8,6 @@ const STORAGE_KEYS = {
 };
 
 const MYSTERY_LOCATIONS = [
-    { id: 1, latitude: 38.987305, longitude: -76.924149, name: 'Misty Hollow Loop',    image: require('@/assets/images/myst-locs/lake-loop.png'),   date: '' },
-    { id: 2, latitude: 38.988015, longitude: -76.949653, name: 'Crimson Stride Circle',  image: require('@/assets/images/myst-locs/kehoe-track.png'), date: '' },
-    { id: 3, latitude: 38.993379, longitude: -76.942130, name: 'Shadowy Pulse Hang', image: require('@/assets/images/myst-locs/sph.png'),          date: '' },
-    { id: 4, latitude: 38.998737, longitude: -76.932851, name: 'Golden Acre Grove',     image: require('@/assets/images/myst-locs/acredale.png'),     date: '' },
-    { id: 5, latitude: 38.986017, longitude: -76.942550, name: 'Whispering Field Plaza',     image: require('@/assets/images/myst-locs/mckeldin.png'),     date: '' },
     { key: 1, id: 1, latitude: 38.987305, longitude: -76.924149, name: 'Misty Hollow Loop',         image: require('@/assets/images/myst-locs/lake-loop.png'),      date: '', timeStamp: '' },
     { key: 2, id: 2, latitude: 38.988015, longitude: -76.949653, name: 'Crimson Stride Circle',     image: require('@/assets/images/myst-locs/kehoe-track.png'),    date: '', timeStamp: '' },
     { key: 3, id: 3, latitude: 38.993379, longitude: -76.942130, name: 'Shadowy Pulse Hang',        image: require('@/assets/images/myst-locs/sph.png'),            date: '', timeStamp: '' },
@@ -20,6 +15,14 @@ const MYSTERY_LOCATIONS = [
     { key: 5, id: 5, latitude: 38.986017, longitude: -76.942550, name: 'Whispering Field Plaza',    image: require('@/assets/images/myst-locs/mckeldin.png'),       date: '', timeStamp: '' },
 ];
   
+
+const IMAGE_MAP: Record<number, any> = {
+  1: require('@/assets/images/myst-locs/lake-loop.png'),
+  2: require('@/assets/images/myst-locs/kehoe-track.png'),
+  3: require('@/assets/images/myst-locs/sph.png'),
+  4: require('@/assets/images/myst-locs/acredale.png'),
+  5: require('@/assets/images/myst-locs/mckeldin.png'),
+};
 
 const CHECK_IN_RADIUS = 0.000395; // ~50 meters
 
@@ -55,6 +58,7 @@ const MystLocContext = createContext({
     addActivity: async () => null,
     resetProgress: async () => null,
     checkInRadius: () => [],
+    IMAGE_MAP: null,
 });
 
 export function MystLocProvider({ children }) {
@@ -91,18 +95,15 @@ export function MystLocProvider({ children }) {
     }
 
     // Adds one location or an array of locations, then persists
-    async function addLocation(newLocation: any) {
     async function addLocation(newLocation: any, timestamp) {
         setMyLocs(prev => {
             const incoming = Array.isArray(newLocation) ? newLocation : [newLocation];
             // Avoid duplicates by id
             const existingIds = new Set(prev.map(l => l.id));
             const toAdd = incoming.filter(l => !existingIds.has(l.id));
-            const foundDate = new Date(Date.now()).toDateString().toUpperCase();
-            const toAddDate = toAdd.map(i => ({ ...i, date: foundDate}));
+            const foundDate = new Date(timestamp).toDateString().toUpperCase();
+            const toAddDate = toAdd.map(i => ({ ...i, date: foundDate, timeStamp: timestamp }));
             const updated = [...prev, ...toAddDate];
-            saveToStorage(STORAGE_KEYS.MY_LOCATIONS, updated); // fire-and-forget inside setState            
-            return updated;
             const toSave = updated.map(({ image, ...rest }) => rest); // strip image before serializing
             saveToStorage(STORAGE_KEYS.MY_LOCATIONS, toSave);
             return updated; // keep image in memory
@@ -162,6 +163,7 @@ export function MystLocProvider({ children }) {
             addActivity,
             resetProgress,
             checkInRadius,
+            IMAGE_MAP
         }}>
             {children}
         </MystLocContext.Provider>

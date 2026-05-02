@@ -1,19 +1,18 @@
 import { useFonts } from 'expo-font';
 import React, { useEffect, useState } from 'react';
-import { SafeAreaView, TouchableOpacity, ScrollView, StyleSheet, Text, FlatList, TextInput, useColorScheme, View, useAnimatedValue } from 'react-native';
+import { SafeAreaView, TouchableOpacity, Image, ScrollView, StyleSheet, Text, FlatList, TextInput, useColorScheme, View, useAnimatedValue } from 'react-native';
 import { useStrava } from '@/context/StravaContext';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useMystLoc } from '@/context/MystLocContext';
 import polyline from '@mapbox/polyline';
-import MapView, { Polyline } from 'react-native-maps';
+import MapView, { Marker, Polyline } from 'react-native-maps';
 import Collapsible from 'react-native-collapsible';
 import Animated, { FadeInDown, FadeIn, FadeInUp, useSharedValue, withTiming, useAnimatedStyle } from 'react-native-reanimated';
-import { useFonts } from 'expo-font';
 import * as Haptics from 'expo-haptics';
 
 export default function TabTwoScreen() {
   // Mystery Locations
-  const {mysteryLocations, myActivities, checkInRadius, newLocs, addLocation, addActivity} = useMystLoc();
+  const {mysteryLocations, myActivities, checkInRadius, newLocs, addLocation, addActivity, IMAGE_MAP} = useMystLoc();
   const [dropdownState, setDropdownState] = useState(false);
 
   // Style Settings
@@ -38,7 +37,7 @@ export default function TabTwoScreen() {
 
 
   // Use Strava API Context
-  const {athlete, fetchFromStrava} = useStrava();
+  const {athlete, fetchFromStrava, sendPQ, changeSendPQ} = useStrava();
 
   const [activities, setActivities] = useState([]);
   const [newActivities, setNewActivities] = useState([]);
@@ -64,6 +63,7 @@ useEffect(() => {
   const [selectedActivity, selectActivity] = useState(null);
   const [currCoords, setCoords] = useState([]);
   const [foundSpots, setFoundSpots] = useState([]);
+  const [showMysterySpot, setShowMysterySpot] = useState(false);
   
   const pickActivity= async (item) => {
     setCoords([]);
@@ -71,7 +71,6 @@ useEffect(() => {
     const itemPolyline = item.map.summary_polyline;
     const decoded = polyline.decode(itemPolyline).map(([lat, lng]) => ({latitude: lat, longitude: lng,}));
     setCoords(decoded);
-    // setFoundSpots(checkInRadius(currCoords));
     setFoundSpots(checkInRadius(decoded));
     setShowMysterySpot(false);
   };
@@ -185,7 +184,7 @@ function MysterySpotReveal() {
           <Animated.View style={[revealStyle]}>
             <View style={[{height: 100}]}></View>
             {foundSpots.length == 0 ?
-              <Text style={[styles.textStyle, {fontWeight: 100, fontSize: 15, color: colors.text, textAlign: 'center'}]}>No spots found.</Text>
+              <Text style={[styles.textStyle, {fontWeight: 100, fontSize: 15, color: colors.text, textAlign: 'center'}]}>No new spots found.</Text>
               :
               <View>
                 <FlatList scrollEnabled={true} style={[{width: '100%', maxHeight: 300}]} data={foundSpots} renderItem={FoundSpotIcon} keyExtractor={item => item.id} />
@@ -209,12 +208,22 @@ function MysterySpotReveal() {
   );
 }
 
+  const addToDescription = async ( activity, numSpots ) => {
+    if (sendPQ && numSpots > 0) {
+      const act = await fetchFromStrava(`/activities/${activity.id}`);
+      const newDesc = (act.description || '') + `\n\n----${numSpots} new location${numSpots > 1 ? 's' : ''} found with PicQuest----`;
+
+      await fetchFromStrava(`/activities/${activity.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description: newDesc }),
+      });
+    }
+  };
+
   const activityComp = ({ item, index }) => {
+    const notOtherTypes = ['Run', 'Walk', 'TrailRun', 'Walk', 'Ride', 'Run'];
     return (
-      <Animated.View entering={FadeInDown.delay(index*100)}>
-        <TouchableOpacity onPress={() => {Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid); pickActivity(item)}} style={[styles.stats, {marginBottom: 10, display: 'flex', flexDirection: 'row'}]}>
-          <View style={[{display: 'flex', flexDirection: 'row', gap: 10}]}>
-            <View style={[{display: 'flex', flexDirection: 'column'}]}>
       <Animated.View style={[{width: '100%'}]} entering={FadeInDown.delay(index*100)}>
         <TouchableOpacity onPress={() => {Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid); pickActivity(item)}} style={[styles.stats, {width: '100%', marginBottom: 10, display: 'flex', flexDirection: 'row'}]}>
           <View style={[{display: 'flex', width: '100%', flexDirection: 'row', gap: 10}]}>
@@ -223,7 +232,12 @@ function MysterySpotReveal() {
               <Text style={[{fontWeight: 300, color: colors.text}]}>{`${meterToMile(item.distance)} mi`}</Text>
               <Text style={[{fontWeight: 300, color: colors.text}]}>{convertDate(item.start_date)}</Text>
             </View>
-
+            <View style={[{justifyContent: 'center'}]}>
+              {(item.sport_type == 'Run' || item.sport_type == 'TrailRun') && <IconSymbol size={35} name="figure.run" color={colorScheme == 'dark' ? "#7ACDCB" : "#67A09F"} />}
+              {(item.sport_type == 'Walk' || item.sport_type == 'Hike') && <IconSymbol size={35} name="figure.walk" color={colorScheme == 'dark' ? "#7ACDCB" : "#67A09F"} />}
+              {(item.sport_type == 'Ride' || item.sport_type == 'MountainBikeRide') && <IconSymbol size={35} name="figure.outdoor.cycle" color={colorScheme == 'dark' ? "#7ACDCB" : "#67A09F"} />}
+              {!notOtherTypes.includes(item.sport_type) && <IconSymbol size={35} name="heart.badge.bolt" color={colorScheme == 'dark' ? "#7ACDCB" : "#67A09F"} />}
+            </View>
           </View>
         </TouchableOpacity>
       </Animated.View>
@@ -232,83 +246,74 @@ function MysterySpotReveal() {
   
     return (
       <SafeAreaView style={[{backgroundColor: colors.background}]}>
-=======
+      <View style={{height: '100%'}}>
+        {mysteryWindow == "closed" ?
         <ScrollView style={{height: '100%'}}>
-            {mysteryWindow == "closed" ?
-              <Animated.View style={[styles.body, {backgroundColor: colors.background, height: '100%'}]} entering={FadeInDown.duration(1000)}>
-                {selectedActivity != null ?
-                  <Animated.View style={[{width: '100%', display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center'}]} entering={FadeIn.duration(1000)}>
-                    <Text style={[styles.textStyle, styles.head, {color: colors.text}]}>Add Activity</Text>
-                    {currCoords.length != 0 ?
-                      <MapView
-                        style={styles.mapPreview}
-                        region={currCoords.length > 0 ? {
-                          latitude: currCoords[0].latitude,
-                          longitude: currCoords[0].longitude,
-                          latitudeDelta: 0.05,
-                          longitudeDelta: 0.05,
-                        } : undefined}> 
-                        {currCoords.length > 0 && (
+          <Animated.View style={[styles.body, {backgroundColor: colors.background, height: '100%'}]} entering={FadeInDown.duration(1000)}>
+            {selectedActivity != null ?
+              <Animated.View style={[{width: '100%', display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center'}]} entering={FadeIn.duration(1000)}>
+                <Text style={[styles.textStyle, styles.head, {color: colors.text}]}>Add Activity</Text>
+                {currCoords.length != 0 ?
+                  <MapView
+                    style={styles.mapPreview}
+                    region={currCoords.length > 0 ? {
+                      latitude: currCoords[0].latitude,
+                      longitude: currCoords[0].longitude,
+                      latitudeDelta: 0.05,
+                      longitudeDelta: 0.05,
+                    } : undefined}>
+                    {currCoords.length > 0 && (
+                      <View>
                         <Polyline
-                          coordinates={currCoords} 
-                          strokeColor="rgb(233, 192, 9)"
-                          strokeWidth={3}
+                        coordinates={currCoords}
+                        strokeColor="rgb(233, 192, 9)"
+                        strokeWidth={3}
                         />
-                      )}
-                      </MapView>
-                    :
-                      <View style={styles.mapPreview}>
-                        <Text style={[styles.textStyle, {color: colors.text}]}>No map preview available</Text>
+                        {showMysterySpot && 
+                          (foundSpots.map((item) => (
+                            <Marker key={item.id} coordinate={{ latitude: item.latitude, longitude: item.longitude }} title={item.name}>
+                              <Image source={IMAGE_MAP[item.id]} style={{ width: 50, height: 50, opacity: 1, borderRadius: 25, borderColor: 'white', borderWidth: 2 }} />
+                            </Marker>
+                          )))
+                        }
                       </View>
-                    }
-                    <Text style={[styles.textStyle, {fontWeight: 600, fontSize: 20, color: colors.text}]}>{selectedActivity?.name}</Text>
-                    <Text style={[styles.textStyle, {fontWeight: 100, fontSize: 19, color: colors.text}]}>{`${meterToMile(selectedActivity.distance)} MI    |    ${formatSeconds(selectedActivity.elapsed_time)}    |    ${selectedActivity.total_elevation_gain} FT`}</Text>
-                    <View style={[{width: '90%', backgroundColor: 'gray', opacity: 0.5, height: 1, marginTop: 10, marginBottom: 10}]}></View>
-                    {/* <TouchableOpacity onPress={() => setDropdownState(!dropdownState)} style={[styles.dropdownbtn]}> */}
-                    <TouchableOpacity onPress={() => {setMysteryWindow("open");}} style={[styles.dropdownbtn]}>
-                      <Text style={styles.buttonText}>Mystery Locations   ▼</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => {addActivity(selectedActivity); addLocation(foundSpots); selectActivity(null)}} style={[styles.button]}>
-                      <Text style={styles.buttonText}>Add</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => selectActivity(null)} style={[styles.button, {backgroundColor: 'gray'}]}>
-                      <Text style={styles.buttonText}>Cancel Add</Text>
-                    </TouchableOpacity>
-                  </Animated.View>
+                      
+                    )}
+                  </MapView>
                   :
-                  <View style={[{width: '100%', gap: 10}]}>
-                    <Text style={[styles.textStyle, styles.head, {color: colors.text}]}>Add Activity</Text>
-                    <Text style={[styles.textStyle, {color: colors.text}]}>Select one of your recent activities.</Text>
-                    <View style={[{display: 'flex', flexDirection: 'column', width: '100%'}]}>
-                      <FlatList scrollEnabled={false} style={[{width: '100%'}]} data={newActivities} renderItem={activityComp} keyExtractor={item => item.id} />
-                    </View>
-                  }
-                  <Text style={[styles.textStyle, {fontWeight: 600, fontSize: 20, color: colors.text}]}>{selectedActivity?.name}</Text>
-                  <Text style={[styles.textStyle, {fontWeight: 100, fontSize: 19, color: colors.text}]}>{`${meterToMile(selectedActivity.distance)} MI    |    ${formatSeconds(selectedActivity.elapsed_time)}    |    ${selectedActivity.total_elevation_gain} FT`}</Text>
-                  <View style={[{width: '90%', backgroundColor: 'gray', opacity: 0.5, height: 1, marginTop: 10, marginBottom: 10}]}></View>
-                  <TouchableOpacity onPress={() => setDropdownState(!dropdownState)} style={[styles.dropdownbtn]}>
-                    <Text style={styles.buttonText}>Mystery Locations   ▼</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => {addActivity(selectedActivity); addLocation(foundSpots); selectActivity(null)}} style={[styles.button]}>
-                    <Text style={styles.buttonText}>Upload</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => selectActivity(null)} style={[styles.button, {backgroundColor: 'gray'}]}>
-                    <Text style={styles.buttonText}>Cancel Upload</Text>
-                  </TouchableOpacity>
-                </Animated.View>
-                :
-                <View style={[{width: '100%', gap: 10}]}>
-                  <Text style={[styles.textStyle, styles.head, {color: colors.text}]}>Upload Activity</Text>
-                  <Text style={[styles.textStyle, {color: colors.text}]}>Select one of your recent activities.</Text>
-                  <View style={[{display: 'flex', flexDirection: 'column', width: '100%'}]}>
-                    <FlatList scrollEnabled={false} style={[{width: '100%'}]} data={activities} renderItem={activityComp} keyExtractor={item => item.id} />
+                  <View style={styles.mapPreview}>
+                    <Text style={[styles.textStyle, {color: colors.text}]}>No map preview available</Text>
                   </View>
                 }
-            </Animated.View>
-            : <MysterySpotReveal></MysterySpotReveal>
-          }
+                <Text style={[styles.textStyle, {fontWeight: 600, fontSize: 20, color: colors.text}]}>{selectedActivity?.name}</Text>
+                <Text style={[styles.textStyle, {fontWeight: 100, fontSize: 19, color: colors.text}]}>{`${meterToMile(selectedActivity.distance)} MI    |    ${formatSeconds(selectedActivity.elapsed_time)}    |    ${selectedActivity.total_elevation_gain} FT`}</Text>
+                <TouchableOpacity onPress={() => {setMysteryWindow("open"); setShowMysterySpot(true);}} style={styles.mystLocBtn}>
+                  <Text style={styles.buttonText}>Mystery Locations</Text>
+                </TouchableOpacity>
+                <View style={[{width: '90%', backgroundColor: 'gray', opacity: 0.5, height: 1, marginTop: 10, marginBottom: 10}]}></View>
+                <TouchableOpacity onPress={() => {addActivity(selectedActivity); addLocation(foundSpots, selectedActivity.start_date); addToDescription(selectedActivity, foundSpots.length); selectActivity(null);}} style={[styles.button]}>
+                  <Text style={styles.buttonText}>Add</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => selectActivity(null)} style={[styles.button, {backgroundColor: 'gray'}]}>
+                  <Text style={styles.buttonText}>Cancel Add</Text>
+                </TouchableOpacity>
+              </Animated.View>
+              :
+              <View style={[{width: '100%', gap: 10}]}>
+                <Text style={[styles.textStyle, styles.head, {color: colors.text}]}>Add Activity</Text>
+                <Text style={[styles.textStyle, {color: colors.text}]}>Select one of your recent activities.</Text>
+                <View style={[{display: 'flex', flexDirection: 'column', width: '100%'}]}>
+                  <FlatList scrollEnabled={false} style={[{width: '100%'}]} data={newActivities} renderItem={activityComp} keyExtractor={item => item.id} />
+                </View>
+              </View>
+            }
+          </Animated.View>
           </ScrollView>
-      </SafeAreaView>
+          : <MysterySpotReveal />
+        }
+        <View style={[{height: 40}]}></View>
+      </View>
+    </SafeAreaView>
     );
 }
 
@@ -343,7 +348,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   stats: {
-    backgroundColor: '#3A3A3A',
+    backgroundColor: 'rgba(96, 96, 96, 0.4)',
     width: '100%',
     borderRadius: 30,
     padding: 20,
@@ -378,8 +383,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 17,
   },
-  dropdownbtn: {
-
+  mystLocBtn: {
+    backgroundColor: '#67A09F',
+    borderRadius: 20,
+    padding: 10,
+    width: '100%',
   },
   textBox: {
     borderColor: 'gray',

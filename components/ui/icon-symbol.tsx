@@ -21,6 +21,13 @@ const MAPPING = {
   'chevron.left': 'chevron-left',
   'gear':'settings',
   'plus':'add',
+  'arrow.up.right':'north-east',
+  'arrow.down.left':'south-east',
+  'chevron.down':'keyboard-arrow-down',
+  'figure.run' : 'directions-run',
+  'figure.walk' : 'directions-walk',
+  'figure.outdoor.cycle' : 'directions-bike',
+  'heart.badge.bolt' : 'monitor-heart'
 } as IconMapping;
 
 /**

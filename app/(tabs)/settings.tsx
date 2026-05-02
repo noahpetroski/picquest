@@ -1,6 +1,6 @@
 import { Button, ScrollView, StyleSheet, TouchableOpacity, Text, TextInput, useColorScheme, View, SafeAreaView, Image, Alert} from 'react-native';
 import { useFonts } from'expo-font';
-
+import { Checkbox } from 'expo-checkbox';
 import React, { useState } from 'react';
 import { useStrava } from '@/context/StravaContext';
 import { useMystLoc } from '@/context/MystLocContext';
@@ -30,21 +30,21 @@ export default function SettingsScreen() {
   const colorScheme = useColorScheme();
   const colors = colorScheme == 'dark' ? darkColors : lightColors;
 
-  const {athlete, logout} = useStrava();
+  const {athlete, logout, changeSendPQ, sendPQ} = useStrava();
   const {resetProgress} = useMystLoc();
 
   const resetAlert = () => {
     Alert.alert(
       'Are you sure you want to erase all information?',
       'This will delete all activities, discoveries, and progress stored in PicQuest. Your profile will still be available.',
-      [{text: 'Cancel'}, {text: 'Yes', onPress: () => resetProgress()}]
+      [{text: 'Cancel'}, {text: 'Yes', onPress: () => {resetProgress(); logout();},}]
     );
   }
 
 
   return (
     <SafeAreaView style={[{backgroundColor: colors.background}]}>
-        <Animated.View style={[styles.body, {backgroundColor: colors.background, height: '100%'}]} entering={FadeInDown.duration(1000)}>
+        <Animated.View style={[styles.body, {backgroundColor: colors.background, height: '100%', width: '100%'}]} entering={FadeInDown.duration(1000)}>
           <Text style={[styles.head, {color: colors.text}]}>Settings</Text>
           <View style={[styles.stats, styles.row]}>
             <Image source={{ uri: athlete?.profile}} style={styles.image}></Image> 
@@ -53,7 +53,6 @@ export default function SettingsScreen() {
               <Text style={{color:colors.text}}>Connected with your Strava account</Text>
             </View>
           </View>
-          <TouchableOpacity style={[styles.button, {backgroundColor: 'gray'}]} onPress={() => {Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); resetAlert()}}><Text style={styles.buttonText}>Reset Progress</Text></TouchableOpacity>
           <View style={styles.row}>
             <Checkbox value={sendPQ} onValueChange={changeSendPQ} color={sendPQ ? '#50778E' : undefined}/>
             <Text style={[{color: colors.text}]}>Allow PicQuest to edit Strava activity descriptions</Text>
@@ -91,7 +90,7 @@ const styles = StyleSheet.create({
   body: {
     flexDirection: 'column',
     fontFamily: 'Radio Canada Big',
-    margin: 20,
+    padding: 20,
     gap: 5,
     alignItems: 'center'
   },
@@ -100,6 +99,8 @@ const styles = StyleSheet.create({
     margin: 10,
     gap: 10,
     width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   head: {
     fontSize: 30,
@@ -116,7 +117,7 @@ const styles = StyleSheet.create({
     width: 200
   },
   stats: {
-    backgroundColor: '#3A3A3A',
+    backgroundColor: 'rgba(96, 96, 96, 0.4)',
     width: '100%',
     padding: 20,
     gap: 5,

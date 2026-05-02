@@ -10,6 +10,8 @@ const StravaContext = createContext({
   request: null,
   login: async () => null,
   logout: async () => null,
+  sendPQ: true,
+  changeSendPQ: async () => null,
 });
 
 // Strava authorization
@@ -31,6 +33,8 @@ export function StravaProvider({ children }) {
     setAthlete(profile);
   }
 
+  const [sendPQ, setSendPQ] = useState(true);
+
   useEffect(() => {
     const checkAuth = async () => {
       const token = await SecureStore.getItemAsync('strava_access_token');
@@ -40,9 +44,21 @@ export function StravaProvider({ children }) {
       }
     };
 
+    const checkPQ = async () => {
+      const pq = await SecureStore.getItemAsync('send-pq');
+      if (pq) {
+        setSendPQ(JSON.parse(pq));
+      }
+    };
+
+    checkPQ();
     checkAuth();
   }, []);
 
+  const changeSendPQ = async() => {
+    setSendPQ(!sendPQ);
+    await SecureStore.setItemAsync('send-pq', JSON.stringify(sendPQ));
+  };
 
   // Authorization Setup
   const redirectUri = AuthSession.makeRedirectUri({ scheme: 'picquest' });
@@ -53,7 +69,7 @@ export function StravaProvider({ children }) {
       redirectUri,
       responseType: 'code',
       extraParams: {
-        scope: 'read,activity:read_all',
+        scope: 'activity:read_all,activity:write',
         approval_prompt: 'auto',
       },
     },
@@ -137,17 +153,26 @@ export function StravaProvider({ children }) {
     return await SecureStore.getItemAsync('strava_access_token');
   };
 
-  const fetchFromStrava = async (endpoint) => {
-    const token = await getValidToken();
+  const fetchFromStrava = async (endpoint, options = {}) => {
+  const token = await getValidToken();
 
-    if (!token) return null;
+  if (!token) return null;
 
-    const res = await fetch(`https://www.strava.com/api/v3${endpoint}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+  const res = await fetch(`https://www.strava.com/api/v3${endpoint}`, {
+    ...options,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      ...options.headers,
+    },
+  });
 
-    return res.json();
-  };
+  if (!res.ok) {
+    console.error(`Strava API error: ${res.status} ${res.statusText}`, await res.text());
+    return null;
+  }
+
+  return res.json();
+};
 
   // didn't include log out or in stuff?
   const login = () => promptAsync();
@@ -168,6 +193,8 @@ export function StravaProvider({ children }) {
       request,
       login,
       logout,
+      sendPQ,
+      changeSendPQ,
     }}>{children}
     </StravaContext.Provider>
   );
