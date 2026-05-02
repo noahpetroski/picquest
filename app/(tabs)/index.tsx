@@ -243,7 +243,7 @@ export default function HomeScreen() {
                 <Text style={{ color: 'gray', textAlign: 'center', alignItems: 'center'}}>Nothing found yet!</Text>
               </View>
             }
-            <Text style={{ color: 'gray', textAlign: 'center', padding: 10 }}>{myLocs.length} OBJECTS</Text>
+            <Text style={{ color: 'gray', textAlign: 'center', padding: 10 }}>{myLocs.length} DISCOVERIES</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.halfbox} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft); setScreen('map-all'); }}>
             <Text style={[styles.sectHead, { color: colors.text, textAlign: 'center' }]}>MY MAP</Text>
