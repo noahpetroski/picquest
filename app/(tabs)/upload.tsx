@@ -6,7 +6,6 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useMystLoc } from '@/context/MystLocContext';
 import polyline from '@mapbox/polyline';
 import MapView, { Marker, Polyline } from 'react-native-maps';
-import Collapsible from 'react-native-collapsible';
 import Animated, { FadeInDown, FadeIn, FadeInUp, useSharedValue, withTiming, useAnimatedStyle } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
@@ -288,14 +287,14 @@ function MysterySpotReveal() {
                 <Text style={[styles.textStyle, {fontWeight: 600, fontSize: 20, color: colors.text}]}>{selectedActivity?.name}</Text>
                 <Text style={[styles.textStyle, {fontWeight: 100, fontSize: 19, color: colors.text}]}>{`${meterToMile(selectedActivity.distance)} MI    |    ${formatSeconds(selectedActivity.elapsed_time)}    |    ${selectedActivity.total_elevation_gain} FT`}</Text>
                 <TouchableOpacity onPress={() => {setMysteryWindow("open"); setShowMysterySpot(true);}} style={styles.mystLocBtn}>
-                  <Text style={styles.buttonText}>Mystery Locations</Text>
+                  <Text style={styles.buttonText}>Unlock Discoveries</Text>
                 </TouchableOpacity>
                 <View style={[{width: '90%', backgroundColor: 'gray', opacity: 0.5, height: 1, marginTop: 10, marginBottom: 10}]}></View>
-                <TouchableOpacity onPress={() => {addActivity(selectedActivity); addLocation(foundSpots, selectedActivity.start_date); addToDescription(selectedActivity, foundSpots.length); selectActivity(null);}} style={[styles.button]}>
+                <TouchableOpacity onPress={() => {addActivity(selectedActivity, foundSpots); addLocation(foundSpots, selectedActivity.start_date); addToDescription(selectedActivity, foundSpots.length); selectActivity(null);}} style={[styles.button]}>
                   <Text style={styles.buttonText}>Add</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => selectActivity(null)} style={[styles.button, {backgroundColor: 'gray'}]}>
-                  <Text style={styles.buttonText}>Cancel Add</Text>
+                <TouchableOpacity onPress={() => selectActivity(null)} style={[styles.button, {backgroundColor: 'none'}]}>
+                  <Text style={[styles.buttonText, {color: '#50778E'}]}>Cancel Add</Text>
                 </TouchableOpacity>
               </Animated.View>
               :
@@ -335,6 +334,16 @@ const styles = StyleSheet.create({
     padding: 15, 
     borderRadius: 30,
     boxShadow: '0px 4px 6px rgba(0, 0, 0, 0.1)',
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    marginLeft: 10,
+    backgroundColor: 'rgba(96, 96, 96, 0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 30,
+    padding: 10,
   },
   mapPreview: {
     width: '100%',

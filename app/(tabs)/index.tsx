@@ -1,585 +1,851 @@
-
-import { useFonts } from'expo-font';
-import React, { useState, useEffect, act, useRef } from 'react';
-import { StravaProvider, useStrava } from '@/context/StravaContext';
-import { Redirect } from 'expo-router';
+import { useFonts } from 'expo-font';
+import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
+import { useStrava } from '@/context/StravaContext';
 import * as Haptics from 'expo-haptics';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useMystLoc } from '@/context/MystLocContext';
 import * as Location from 'expo-location';
-import polyline from '@mapbox/polyline';
-import { Dimensions, FlatList, Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, useColorScheme, View, RefreshControl} from 'react-native';
-import Animated, { FadeInDown, interpolate, SlideInDown, SlideInRight, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
+import * as SecureStore from 'expo-secure-store';
+import {
+  Dimensions, FlatList, Image, SafeAreaView, ScrollView,
+  StyleSheet, Text, TouchableOpacity, useColorScheme, View,
+} from 'react-native';
+import Animated, {
+  FadeIn, FadeInDown, interpolate, SlideInRight,
+  useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, ZoomIn,
+} from 'react-native-reanimated';
 import MapView, { Circle, Marker } from 'react-native-maps';
 import { runOnJS } from 'react-native-worklets';
 
-export default function HomeScreen() {
-  const [fontsLoaded] = useFonts({
-    'Radio Canada Big': require('../../assets/fonts/Radio_Canada_Big/RadioCanadaBig.ttf')
-  });
+// ─── Constants ───────────────────────────────────────────────────────────────
 
-  const lightColors = { background: 'white', text: 'black' };
-  const darkColors = { background: '#2C2C2C', text: 'white' };
-  const colorScheme = useColorScheme();
-  const colors = colorScheme == 'dark' ? darkColors : lightColors;
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const C_ITEM_WIDTH = SCREEN_WIDTH * 0.8;
+const C_MARGIN = 5;
+const C_WIDTH = C_ITEM_WIDTH + C_MARGIN * 2;
 
-  const { athlete, authenticated, fetchFromStrava } = useStrava();
+const lightColors = { background: 'white', text: 'black', gray1: '#e8e8e8', gray2: '#313131' };
+const darkColors  = { background: '#2C2C2C', text: 'white', gray1: '#404040', gray2: '#898989' };
 
-  const [stats, setStats] = useState([]);
+// ─── Pure helpers (no component state needed) ────────────────────────────────
 
-  const [thisWeekMileage, setThisWeekMile] = useState(0);
-  const [thisWeekTime, setThisWeekTime] = useState(0);
-  const [thisWeekObjects, setThisWeekObjects] = useState(0);
+function meterToMile(meters: number) {
+  return (meters / 1609).toFixed(2);
+}
 
-  const [screenSetting, setScreen] = useState('stats');
-  const {mysteryLocations, myLocs, myActivities, newLocs, addLocation, IMAGE_MAP} = useMystLoc();
+function secsToMin(secs: number) {
+  let min = Math.floor(secs / 60);
+  let result = '';
+  if (min > 60) {
+    result = `${(min / 60).toFixed(0)} HR, `;
+    min = min % 60;
+  }
+  return result + min;
+}
 
+function dateFormat(isoDate: string) {
+  const info = isoDate.split('-');
+  return `${info[1]}/${info[2]}/${info[0]}`;
+}
 
-  const [myLocation, setMyLocation] = useState({ latitude: 38.985969, longitude: -76.942562 });
-  const [selectedLocation, selectNewLocation] = useState(null);
-  const [locationRadius, setLocationRadius] = useState(0);
+// ─── WalkthroughOverlay ───────────────────────────────────────────────────────
 
+const WALKTHROUGH_STEPS = [
+  { title: 'Your Stats',   body: 'Check your mileage, active time, and discoveries for the past 7 days.' },
+  { title: 'Collection',  body: 'See all of your discoveries, or search for more.' },
+  { title: 'Your Map',    body: 'View all of your discoveries on a map.' },
+];
+
+const WalkthroughOverlay = memo(() => {
+  const [walkthroughStep, setWalkthroughStep] = useState(0);
 
   useEffect(() => {
-    const loadStats = async () => {
-      const stats = await fetchFromStrava(`/athletes/${athlete?.id}/stats`);
-      setStats(stats);
-    };
-    if (athlete?.id) {
-      loadStats();
-      let thisLast = getThisWeekLastWeek();
-      setThisWeekMile(thisLast.thisWeek[0]);
-      setThisWeekTime(thisLast.thisWeek[1]);
-      setThisWeekObjects(thisLast.thisWeek[2]);
+    (async () => {
+      const seen = await SecureStore.getItemAsync('walkthroughSeen');
+      if (!seen) {
+        setWalkthroughStep(1);
+        await SecureStore.setItemAsync('walkthroughSeen', 'true');
+      }
+    })();
+  }, []);
+
+  if (walkthroughStep === 0 || walkthroughStep > WALKTHROUGH_STEPS.length) return null;
+  const step = WALKTHROUGH_STEPS[walkthroughStep - 1];
+
+  return (
+    <Animated.View entering={FadeIn.duration(300)} style={overlayStyles.backdrop}>
+      <Animated.View entering={FadeInDown.duration(400)} style={overlayStyles.card}>
+        <Text style={overlayStyles.title}>{step.title}</Text>
+        <Text style={overlayStyles.body}>{step.body}</Text>
+        <View style={overlayStyles.footer}>
+          <Text style={{ color: 'gray' }}>{walkthroughStep}/{WALKTHROUGH_STEPS.length}</Text>
+          <TouchableOpacity
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setWalkthroughStep(s => s + 1);
+            }}
+          >
+            <Text style={overlayStyles.nextBtn}>
+              {walkthroughStep < WALKTHROUGH_STEPS.length ? 'Next →' : 'Done'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </Animated.View>
+    </Animated.View>
+  );
+});
+
+const overlayStyles = StyleSheet.create({
+  backdrop: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 100,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  card: {
+    backgroundColor: '#2C2C2C', borderRadius: 20,
+    padding: 25, margin: 30, gap: 12,
+  },
+  title: { color: 'white', fontFamily: 'Radio Canada Big', fontSize: 22, fontWeight: '600' },
+  body:  { color: '#BEBEBE', fontSize: 16, fontFamily: 'Radio Canada Big' },
+  footer: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
+  nextBtn: { color: '#7ACDCB', fontSize: 16, fontFamily: 'Radio Canada Big' },
+});
+
+// ─── ImageOverlay ─────────────────────────────────────────────────────────────
+
+interface ImageOverlayProps {
+  imageOverlay: any;
+  setImageOverlay: (v: any) => void;
+  foundActsLog: any[];
+  colors: typeof lightColors;
+  IMAGE_MAP: Record<string, any>;
+  meterToMile: (m: number) => string;
+}
+
+const ImageOverlay = memo(({
+  imageOverlay, setImageOverlay, foundActsLog, colors, IMAGE_MAP,
+}: ImageOverlayProps) => {
+  if (imageOverlay == null) return null;
+
+  return (
+    <Animated.View entering={FadeIn.duration(300)} style={overlayStyles.backdrop}>
+      <Animated.View entering={FadeInDown.duration(400)} style={{
+        borderRadius: 20, padding: 25, margin: 10, gap: 12, width: '100%',
+      }}>
+        {imageOverlay === 'activity-log' ? (
+          <Animated.View entering={ZoomIn} style={[{
+            backgroundColor: colors.gray1, padding: 15, borderRadius: 10, width: '100%',
+          }]}>
+            <View style={{ height: 0 }} />
+            <TouchableOpacity
+              style={[styles.backButton, { position: 'absolute', zIndex: 1, top: 10, left: 0 }]}
+              onPress={() => setImageOverlay(null)}
+            >
+              <IconSymbol size={20} name="xmark" color="white" />
+            </TouchableOpacity>
+            <Text style={{ fontSize: 20, color: colors.gray2, textAlign: 'right' }}>
+              {foundActsLog[1] ? dateFormat(foundActsLog[1]) : ''}
+            </Text>
+            {foundActsLog[0]?.map((item: any, index: number) => (
+              <View key={index} style={{ padding: 15, borderRadius: 10 }}>
+                <Text style={{ fontWeight: '400', fontSize: 18, color: colors.text }}>{item.name}</Text>
+                <Text style={{ fontWeight: '100', fontSize: 16, color: colors.text }}>
+                  {`${meterToMile(item.distance)} MI`}
+                </Text>
+                <View>
+                  {item.discoveries?.map((ditem: any, dindex: number) => (
+                    <View key={dindex} style={{ flexDirection: 'row', margin: 5, alignItems: 'center', gap: 5 }}>
+                      <Image
+                        source={IMAGE_MAP[ditem.id]}
+                        style={{ width: 25, height: 25, borderRadius: 25, borderColor: 'white', borderWidth: 1 }}
+                      />
+                      <Text style={{ color: colors.gray2 }}>{ditem.name}</Text>
+                    </View>
+                  ))}
+                </View>
+                {index < foundActsLog[0].length - 1 && (
+                  <View style={{ width: '90%', backgroundColor: 'gray', opacity: 0.5, height: 1, marginTop: 10, marginBottom: 10 }} />
+                )}
+              </View>
+            ))}
+          </Animated.View>
+        ) : (
+          <Animated.View entering={ZoomIn}>
+            <TouchableOpacity
+              style={[styles.backButton, { position: 'absolute', zIndex: 1, top: 10 }]}
+              onPress={() => setImageOverlay(null)}
+            >
+              <IconSymbol size={25} name="xmark" color="white" />
+            </TouchableOpacity>
+            <Image style={{ width: 350, maxHeight: 500, borderRadius: 20 }} source={imageOverlay} />
+          </Animated.View>
+        )}
+      </Animated.View>
+    </Animated.View>
+  );
+});
+
+// ─── CarouselItem ─────────────────────────────────────────────────────────────
+
+interface CarouselItemProps {
+  item: any;
+  index: number;
+  scrollX: any;
+  colors: typeof lightColors;
+  IMAGE_MAP: Record<string, any>;
+}
+
+const CarouselItem = memo(({ item, index, scrollX, colors, IMAGE_MAP }: CarouselItemProps) => {
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{
+      scale: interpolate(
+        scrollX.value,
+        [(index - 1) * C_WIDTH, index * C_WIDTH, (index + 1) * C_WIDTH],
+        [0.85, 1, 0.85],
+        'clamp',
+      ),
+    }],
+  }));
+
+  return (
+    <Animated.View style={[{ marginHorizontal: C_MARGIN }, animatedStyle]}>
+      {item?.id && (
+        <Image style={styles.carouselImage} source={IMAGE_MAP[item.id]} resizeMode="cover" />
+      )}
+      <View style={styles.carouselTextContainer}>
+        <Text style={{ color: colors.text, fontFamily: 'Radio Canada Big', fontSize: 20 }}>{item.name}</Text>
+        <Text style={styles.sectBody}>FOUND {item.date}</Text>
+      </View>
+    </Animated.View>
+  );
+});
+
+// ─── LocationsScroll ──────────────────────────────────────────────────────────
+
+interface LocationsScrollProps {
+  myLocs: any[];
+  colors: typeof lightColors;
+  IMAGE_MAP: Record<string, any>;
+}
+
+const LocationsScroll = memo(({ myLocs, colors, IMAGE_MAP }: LocationsScrollProps) => {
+  const scrollX = useSharedValue<number>(0);
+  const currentIndex = useSharedValue<number>(0);
+  const sidePadding = (SCREEN_WIDTH - C_ITEM_WIDTH) / 2;
+
+  const triggerHaptic = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, []);
+
+  const scrollHandler = useAnimatedScrollHandler(e => {
+    scrollX.value = e.contentOffset.x;
+    const newIndex = Math.round(scrollX.value / C_WIDTH);
+    if (newIndex !== currentIndex.value) {
+      currentIndex.value = newIndex;
+      runOnJS(triggerHaptic)();
     }
+  });
+
+  return (
+    <Animated.ScrollView
+      onScroll={scrollHandler}
+      scrollEventThrottle={16}
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      snapToInterval={C_WIDTH}
+      decelerationRate="fast"
+      contentContainerStyle={{ paddingHorizontal: sidePadding }}
+    >
+      {[...myLocs].reverse().map((item, index) => (
+        <CarouselItem
+          key={index}
+          item={item}
+          index={index}
+          scrollX={scrollX}
+          colors={colors}
+          IMAGE_MAP={IMAGE_MAP}
+        />
+      ))}
+    </Animated.ScrollView>
+  );
+});
+
+// ─── CalendarSquares ──────────────────────────────────────────────────────────
+
+interface CalendarSquaresProps {
+  myActivities: any[];
+  colors: typeof lightColors;
+  onDayPress: (acts: any[], dateISO: string) => void;
+}
+
+const MONTH_NAMES = [
+  'January','February','March','April','May','June',
+  'July','August','September','October','November','December',
+];
+
+const CalendarSquares = memo(({ myActivities, colors, onDayPress }: CalendarSquaresProps) => {
+  const today = new Date();
+  const [viewYear, setViewYear] = useState(today.getFullYear());
+  const [viewMonth, setViewMonth] = useState(today.getMonth());
+
+  const firstDayIndex = new Date(viewYear, viewMonth, 1).getDay();
+  const daysInMonth   = new Date(viewYear, viewMonth + 1, 0).getDate();
+
+  function prevMonth() {
+    if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1); }
+    else setViewMonth(m => m - 1);
+  }
+  function nextMonth() {
+    if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1); }
+    else setViewMonth(m => m + 1);
+  }
+
+  function getActivitiesWithDate(date: string) {
+    return myActivities.filter(a => a.start_date.split('T')[0] === date);
+  }
+
+  return (
+    <View style={{ gap: 8 }}>
+      <View style={{ flexDirection: 'row', gap: 10, justifyContent: 'center', alignItems: 'center' }}>
+        <TouchableOpacity style={{ borderRadius: 15, padding: 5 }} onPress={prevMonth}>
+          <IconSymbol name="chevron.left" size={20} color="white" />
+        </TouchableOpacity>
+        <Text style={{ color: colors.text, fontSize: 15 }}>{MONTH_NAMES[viewMonth]} {viewYear}</Text>
+        <TouchableOpacity style={{ borderRadius: 15, padding: 5 }} onPress={nextMonth}>
+          <IconSymbol name="chevron.right" size={20} color="white" />
+        </TouchableOpacity>
+      </View>
+
+      <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+        {Array.from({ length: firstDayIndex }).map((_, i) => (
+          <View key={`empty-${i}`} style={[styles.calendarSquare, { opacity: 0 }]} />
+        ))}
+        {Array.from({ length: daysInMonth }).map((_, i) => {
+          const lookDate    = new Date(viewYear, viewMonth, i + 1);
+          const lookDateISO = lookDate.toISOString().split('T')[0];
+          const foundActs   = getActivitiesWithDate(lookDateISO);
+
+          return foundActs.length > 0 ? (
+            <TouchableOpacity
+              key={`day-${i}`}
+              onPress={() => onDayPress(foundActs, lookDateISO)}
+              style={[styles.calendarSquare, { backgroundColor: '#50778E' }]}
+            />
+          ) : (
+            <View key={`day-${i}`} style={[styles.calendarSquare, { backgroundColor: 'gray' }]} />
+          );
+        })}
+      </View>
+    </View>
+  );
+});
+
+// ─── StatsView ────────────────────────────────────────────────────────────────
+
+interface StatsViewProps {
+  athlete: any;
+  colors: typeof lightColors;
+  thisWeekMileage: number;
+  thisWeekTime: number;
+  thisWeekObjects: number;
+  myLocs: any[];
+  myActivities: any[];
+  myLocation: { latitude: number; longitude: number };
+  IMAGE_MAP: Record<string, any>;
+  getTrend: (stat: string) => React.ReactNode;
+  setScreen: (s: string) => void;
+  setImageOverlay: (v: any) => void;
+  setFoundActsLog: (v: any) => void;
+}
+
+const StatsView = memo(({
+  athlete, colors, thisWeekMileage, thisWeekTime, thisWeekObjects,
+  myLocs, myActivities, myLocation, IMAGE_MAP, getTrend, setScreen,
+  setImageOverlay, setFoundActsLog,
+}: StatsViewProps) => {
+  const [activityDropdownOpen, setActivityDropdownOpen] = useState(false);
+
+  const handleDayPress = useCallback((acts: any[], dateISO: string) => {
+    setFoundActsLog([acts, dateISO]);
+    setImageOverlay('activity-log');
+  }, [setFoundActsLog, setImageOverlay]);
+
+  return (
+    <Animated.View
+      style={[styles.body, { backgroundColor: colors.background, height: '100%', margin: 15 }]}
+      entering={FadeInDown.duration(1000)}
+    >
+      <Text style={[styles.head, { color: colors.text }]}>Welcome, {athlete.firstname}</Text>
+      <Image source={{ uri: athlete?.profile }} style={styles.image} />
+
+      <View style={styles.stats}>
+        <Text style={[styles.sectHead, { color: colors.text }]}>THIS WEEK:</Text>
+        <View style={styles.row}>
+          <Text style={styles.sectBody}>{'MILEAGE\nACTIVE TIME\nDISCOVERIES'}</Text>
+          <View style={{ flexDirection: 'column', flex: 1 }}>
+            {[
+              { label: `${meterToMile(thisWeekMileage)} MI`, trend: 'mile' },
+              { label: `${secsToMin(thisWeekTime)} MIN`,      trend: 'time' },
+              { label: `${thisWeekObjects}`,                  trend: 'obj'  },
+            ].map(({ label, trend }) => (
+              <View key={trend} style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={[styles.sectBody, { marginRight: 5, textAlign: 'right', flex: 1, color: colors.text }]}>
+                  {label}
+                </Text>
+                {getTrend(trend)}
+              </View>
+            ))}
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.row}>
+        <TouchableOpacity
+          style={styles.halfbox}
+          onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft); setScreen('collection'); }}
+        >
+          <Text style={[styles.sectHead, { color: colors.text, textAlign: 'center' }]}>COLLECTION</Text>
+          {myLocs.length > 0 ? (
+            <Image style={styles.collectionThumb} source={IMAGE_MAP[myLocs[myLocs.length - 1].id]} />
+          ) : (
+            <View style={styles.noLocs}>
+              <Text style={{ color: 'gray', textAlign: 'center' }}>Nothing found yet!</Text>
+            </View>
+          )}
+          <Text style={{ color: 'gray', textAlign: 'center', padding: 10 }}>
+            {myLocs.length} {myLocs.length === 1 ? 'DISCOVERY' : 'DISCOVERIES'}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.halfbox}
+          onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft); setScreen('map-all'); }}
+        >
+          <Text style={[styles.sectHead, { color: colors.text, textAlign: 'center' }]}>MY MAP</Text>
+          <MapView
+            style={styles.mapSmallPreview}
+            scrollEnabled={false}
+            region={myLocation ? {
+              latitude: myLocation.latitude,
+              longitude: myLocation.longitude,
+              latitudeDelta: 0.05,
+              longitudeDelta: 0.05,
+            } : undefined}
+          />
+        </TouchableOpacity>
+      </View>
+
+      {myActivities.length > 0 && (
+        <TouchableOpacity
+          style={styles.activityLog}
+          onPress={() => setActivityDropdownOpen(o => !o)}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Text style={[styles.sectHead, { color: colors.text, flex: 1 }]}>ACTIVITY LOG</Text>
+            <IconSymbol size={25} name="chevron.down" color="white" />
+          </View>
+          {activityDropdownOpen && (
+            <CalendarSquares
+              myActivities={myActivities}
+              colors={colors}
+              onDayPress={handleDayPress}
+            />
+          )}
+        </TouchableOpacity>
+      )}
+
+      <View style={styles.tabBarSpacer} />
+    </Animated.View>
+  );
+});
+
+// ─── CollectionView ───────────────────────────────────────────────────────────
+
+interface CollectionViewProps {
+  colors: typeof lightColors;
+  myLocs: any[];
+  IMAGE_MAP: Record<string, any>;
+  setScreen: (s: string) => void;
+}
+
+const CollectionView = memo(({ colors, myLocs, IMAGE_MAP, setScreen }: CollectionViewProps) => (
+  <Animated.View
+    style={[styles.body, { backgroundColor: colors.background, height: '100%', padding: 5 }]}
+    entering={FadeInDown.duration(1000)}
+  >
+    <View style={{ width: '100%', marginTop: 0 }}>
+      <TouchableOpacity style={styles.backButton} onPress={() => setScreen('stats')}>
+        <IconSymbol size={25} name="chevron.left" color="white" />
+      </TouchableOpacity>
+      <Text style={[styles.head, { color: colors.text }]}>My Collection</Text>
+    </View>
+    <View style={{ flexDirection: 'column', flex: 1, marginBottom: 0 }}>
+      {myLocs.length > 0 ? (
+        <LocationsScroll myLocs={myLocs} colors={colors} IMAGE_MAP={IMAGE_MAP} />
+      ) : (
+        <Text style={[styles.bodyEl, { color: 'grey', maxWidth: 350, fontSize: 16, textAlign: 'center' }]}>
+          No locations yet! Try the discover button to look for new ones!
+        </Text>
+      )}
+    </View>
+    <View style={[styles.body, styles.bodyEl]}>
+      <TouchableOpacity
+        style={[styles.button, { backgroundColor: 'rgba(94, 141, 140, 1)' }]}
+        onPress={() => setScreen('map')}
+      >
+        <Text style={styles.buttonText}>Discover New</Text>
+      </TouchableOpacity>
+    </View>
+  </Animated.View>
+));
+
+// ─── MyMapView ────────────────────────────────────────────────────────────────
+
+interface MyMapViewProps {
+  colors: typeof lightColors;
+  myLocation: { latitude: number; longitude: number };
+  newLocs: any[];
+  setScreen: (s: string) => void;
+  setImageOverlay: (v: any) => void;
+  getDistanceAway: (item: any) => string;
+}
+
+const MyMapView = memo(({
+  colors, myLocation, newLocs, setScreen, setImageOverlay, getDistanceAway,
+}: MyMapViewProps) => {
+  const [locationRadius, setLocationRadius]   = useState(0);
+  const [selectedLocation, selectNewLocation] = useState<any>(null);
+
+  const locationComp = useCallback(({ item, index }: { item: any; index: number }) => (
+    <Animated.View entering={FadeInDown.delay(index * 100)}>
+      <TouchableOpacity
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid);
+          selectNewLocation(item);
+          setLocationRadius(parseFloat(getDistanceAway(item)) / 0.000621371);
+        }}
+        style={[styles.locationList, { marginBottom: 10 }]}
+      >
+        {selectedLocation === item ? (
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <TouchableOpacity onPress={() => setImageOverlay(item.image)}>
+              <Image style={{ width: 200, height: 200, borderRadius: 20 }} source={item.image} />
+            </TouchableOpacity>
+            <View style={{ flexDirection: 'column', flex: 1 }}>
+              <Text style={{ fontWeight: '500', color: colors.text }}>{item.name}</Text>
+              <Text style={{ fontWeight: '200', color: colors.text }}>{getDistanceAway(item)} mi away</Text>
+            </View>
+          </View>
+        ) : (
+          <View style={{ flexDirection: 'column', gap: 10 }}>
+            <Text style={{ fontWeight: '500', color: colors.text }}>{item.name}</Text>
+            <Text style={{ fontWeight: '200', color: colors.text }}>{getDistanceAway(item)} mi away</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    </Animated.View>
+  ), [selectedLocation, colors, getDistanceAway, setImageOverlay]);
+
+  return (
+    <Animated.View
+      style={[styles.body, { backgroundColor: colors.background, height: '100%' }]}
+      entering={FadeInDown.duration(700)}
+    >
+      <View style={{ width: '100%', marginTop: 0 }}>
+        <TouchableOpacity style={styles.backButton} onPress={() => setScreen('stats')}>
+          <IconSymbol size={25} name="chevron.left" color="white" />
+        </TouchableOpacity>
+        <Text style={[styles.head, { color: colors.text }]}>Discover Locations</Text>
+      </View>
+      <MapView
+        style={styles.mapPreview}
+        region={myLocation ? {
+          latitude: myLocation.latitude,
+          longitude: myLocation.longitude,
+          latitudeDelta: 0.05,
+          longitudeDelta: 0.05,
+        } : undefined}
+      >
+        <Marker coordinate={myLocation} title="my location" />
+        <Circle
+          center={myLocation}
+          radius={locationRadius}
+          strokeColor="rgba(187, 155, 86, 1)"
+          fillColor="rgba(187, 155, 86, 0.5)"
+        />
+      </MapView>
+      <View style={[styles.bodyEl, { flexDirection: 'column' }]}>
+        <Text style={[styles.sectBody, { marginBottom: 10 }]}>Locations near you:</Text>
+        <FlatList
+          scrollEnabled={false}
+          style={{ width: '100%' }}
+          data={newLocs}
+          renderItem={locationComp}
+          keyExtractor={item => item.id}
+        />
+        <View style={styles.spacer} />
+      </View>
+    </Animated.View>
+  );
+});
+
+// ─── MyMapLocationsView ───────────────────────────────────────────────────────
+
+interface MyMapLocationsViewProps {
+  myLocation: { latitude: number; longitude: number };
+  myLocs: any[];
+  IMAGE_MAP: Record<string, any>;
+  setScreen: (s: string) => void;
+}
+
+const MyMapLocationsView = memo(({ myLocation, myLocs, IMAGE_MAP, setScreen }: MyMapLocationsViewProps) => (
+  <View style={StyleSheet.absoluteFillObject}>
+    <MapView
+      style={StyleSheet.absoluteFillObject}
+      region={myLocation ? {
+        latitude: myLocation.latitude,
+        longitude: myLocation.longitude,
+        latitudeDelta: 0.05,
+        longitudeDelta: 0.05,
+      } : undefined}
+    >
+      <Marker coordinate={myLocation} title="My Location" />
+      {myLocs.map(item => (
+        <Marker key={item.id} coordinate={{ latitude: item.latitude, longitude: item.longitude }} title={item.name}>
+          <Image
+            source={IMAGE_MAP[item.id]}
+            style={{ width: 50, height: 50, borderRadius: 25, borderColor: 'white', borderWidth: 2 }}
+          />
+        </Marker>
+      ))}
+    </MapView>
+    <SafeAreaView style={{ position: 'absolute', top: 0, left: 0 }}>
+      <TouchableOpacity style={styles.backButtonTop} onPress={() => setScreen('stats')}>
+        <IconSymbol size={25} name="chevron.left" color="white" />
+      </TouchableOpacity>
+    </SafeAreaView>
+  </View>
+));
+
+// ─── HomeScreen ───────────────────────────────────────────────────────────────
+
+export default function HomeScreen() {
+  const [fontsLoaded] = useFonts({
+    'Radio Canada Big': require('../../assets/fonts/Radio_Canada_Big/RadioCanadaBig.ttf'),
+  });
+
+  const colorScheme = useColorScheme();
+  const colors      = colorScheme === 'dark' ? darkColors : lightColors;
+
+  const { athlete, fetchFromStrava } = useStrava();
+  const { myLocs, myActivities, newLocs, IMAGE_MAP } = useMystLoc();
+
+  const [thisWeekMileage, setThisWeekMile]    = useState(0);
+  const [thisWeekTime,    setThisWeekTime]    = useState(0);
+  const [thisWeekObjects, setThisWeekObjects] = useState(0);
+
+  const [screenSetting, setScreen]      = useState('stats');
+  const [imageOverlay,  setImageOverlay] = useState<any>(null);
+  const [foundActsLog,  setFoundActsLog] = useState<any[]>([]);
+
+  const [myLocation, setMyLocation] = useState({ latitude: 38.985969, longitude: -76.942562 });
+
+  // ── Data loading ──────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (!athlete?.id) return;
+    (async () => {
+      await fetchFromStrava(`/athletes/${athlete.id}/stats`);
+      const { thisWeek } = getThisWeekLastWeek();
+      setThisWeekMile(thisWeek[0]);
+      setThisWeekTime(thisWeek[1]);
+      setThisWeekObjects(thisWeek[2]);
+    })();
   }, [athlete]);
 
   useEffect(() => {
-    const getLocation = async () => {
-      let { status } = await Location.requestForegroundPermissionsAsync();
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') return;
-      let location = await Location.getCurrentPositionAsync({});
+      const location = await Location.getCurrentPositionAsync({});
       setMyLocation({ latitude: location.coords.latitude, longitude: location.coords.longitude });
-    };
-    getLocation();
+    })();
   }, []);
 
-  function meterToMile(meters) {
-    return (meters / 1609).toFixed(2);
-  }
-
-  function secsToMin(secs) {
-    let min = Math.floor(secs / 60);
-    let result = "";
-    if (min > 60) {
-      result = `${(min / 60).toFixed(0)} HR, `;
-      min = min % 60;
-    }
-    return result + min;
-  }
+  // ── Helpers ───────────────────────────────────────────────────────────────
 
   function getThisWeekLastWeek() {
-    const acts = myActivities;
-    let thisWeek = [0, 0, 0];
-    let lastWeek = [0, 0, 0];
-    const thisWeekStart = new Date(Date.now());
-    thisWeekStart.setDate(thisWeekStart.getDate() - 7);
-    const lastWeekStart = new Date(Date.now());
-    lastWeekStart.setDate(lastWeekStart.getDate() - 14);
-    acts.forEach((act) => {
-      let actDate = new Date(act?.start_date);
+    const thisWeekStart = new Date(Date.now()); thisWeekStart.setDate(thisWeekStart.getDate() - 7);
+    const lastWeekStart = new Date(Date.now()); lastWeekStart.setDate(lastWeekStart.getDate() - 14);
+    const thisWeek = [0, 0, 0];
+    const lastWeek = [0, 0, 0];
+
+    myActivities.forEach(act => {
+      const actDate = new Date(act?.start_date);
       if (actDate >= thisWeekStart) {
-        thisWeek[0] += act.distance;
-        thisWeek[1] += act.moving_time;
+        thisWeek[0] += act.distance; thisWeek[1] += act.moving_time;
       } else if (actDate < thisWeekStart && actDate >= lastWeekStart) {
-        lastWeek[0] += act.distance;
-        lastWeek[1] += act.moving_time;
+        lastWeek[0] += act.distance; lastWeek[1] += act.moving_time;
       }
     });
-    myLocs.forEach((loc) => {
-      let locDate = new Date(loc.timeStamp);
-      if (locDate >= thisWeekStart) {
-        thisWeek[2] += 1;
-      } else if (locDate < thisWeekStart && locDate >= lastWeekStart) {
-        lastWeek[2] += 1;
-      }
+    myLocs.forEach(loc => {
+      const locDate = new Date(loc.timeStamp);
+      if (locDate >= thisWeekStart) thisWeek[2] += 1;
+      else if (locDate < thisWeekStart && locDate >= lastWeekStart) lastWeek[2] += 1;
     });
     return { thisWeek, lastWeek };
   }
 
-  function getTrend(stat) {
+  const getTrend = useCallback((stat: string) => {
     const { thisWeek, lastWeek } = getThisWeekLastWeek();
-    let change;
-    if (stat == 'mile') change = thisWeek[0] - lastWeek[0];
-    else if (stat == 'time') change = thisWeek[1] - lastWeek[1];
+    let change = 0;
+    if (stat === 'mile') change = thisWeek[0] - lastWeek[0];
+    else if (stat === 'time') change = thisWeek[1] - lastWeek[1];
     else change = thisWeek[2] - lastWeek[2];
 
     if (change > 0) return <IconSymbol size={20} name="arrow.up.right" color="green" />;
     if (change < 0) return <IconSymbol size={20} name="arrow.down.left" color="red" />;
-    return <IconSymbol size={20} name="arrow.right" color='rgb(80, 119, 142)' />;
-  }
+    return <IconSymbol size={20} name="arrow.right" color="rgb(80, 119, 142)" />;
+  }, [myActivities, myLocs]);
 
-  function getDistanceAway(item) {
-    let dLat = myLocation.latitude - item.latitude;
-    let dLon = myLocation.longitude - item.longitude;
-    let csq = (69 * dLat) ** 2 + (69 * dLon) ** 2;
-    return Math.sqrt(csq).toFixed(2);
-  }
+  const getDistanceAway = useCallback((item: any) => {
+    const dLat = myLocation.latitude  - item.latitude;
+    const dLon = myLocation.longitude - item.longitude;
+    return Math.sqrt((69 * dLat) ** 2 + (69 * dLon) ** 2).toFixed(2);
+  }, [myLocation]);
 
-  const locationComp = ({ item, index }) => (
-    <Animated.View entering={FadeInDown.delay(index * 100)}>
-      <TouchableOpacity
-        onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid); selectNewLocation(item); setLocationRadius(parseFloat(getDistanceAway(item)) / 0.000621371); }}
-        style={[styles.locationList, { marginBottom: 10 }]}
-      >
-        {selectedLocation == item ?
-          <View style={{ display: 'flex', flexDirection: 'row', gap: 10 }}>
-            <Image style={{ width: 200, height: 200, borderRadius: 20 }} source={item.image} />
-            <View style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-              <Text style={{ fontWeight: '500', color: colors.text }}>{item.name}</Text>
-              <Text style={{ fontWeight: '200', color: colors.text }}>{getDistanceAway(item)} mi away</Text>
-            </View>
-            
-          </View>
-          :
-          <View style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <Text style={{ fontWeight: '500', color: colors.text }}>{item.name}</Text>
-            <Text style={{ fontWeight: '200', color: colors.text }}>{getDistanceAway(item)} mi away</Text>
-          </View>
-        }
-      </TouchableOpacity>
-    </Animated.View>
-  );
-
-  const { width: SCREEN_WIDTH } = Dimensions.get('window');
-  const C_ITEM_WIDTH = SCREEN_WIDTH * 0.8;
-  const C_MARGIN = 5;
-  const C_WIDTH = C_ITEM_WIDTH + C_MARGIN * 2;
-
-  const CarouselItem = ({item, index, scrollX}) => {
-    const animatedStyle = useAnimatedStyle(() => ({
-      transform: [{scale: interpolate(scrollX.value, [(index-1)*C_WIDTH, index*C_WIDTH, (index+1)*C_WIDTH], [0.85, 1, 0.85], 'clamp')}]
-    }));
-
-    return (
-       <Animated.View style={[{ marginHorizontal: C_MARGIN}, animatedStyle]}>
-        {item?.id && (<Image style={styles.carouselImage} source={IMAGE_MAP[item.id]} resizeMode="cover"/>)}
-        <View style={styles.carouselTextContainer}>
-          <Text style={[{color: colors.text, fontFamily: 'Radio Canada Big', fontSize: 20}]}>{item.name}</Text>
-          <Text style={styles.sectBody}>FOUND {item.date}</Text>
-        </View>
-      </Animated.View>
-    );
-  }
-
-  function LocationsScroll() {
-    const scrollX = useSharedValue<number>(0);
-    const currentIndex = useSharedValue<number>(0);
-
-    const sidePadding = (SCREEN_WIDTH - C_ITEM_WIDTH) / 2;
-
-    function triggerHaptic() {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    };
-
-    const scrollHandler = useAnimatedScrollHandler(e => {
-      scrollX.value = e.contentOffset.x;
-      const newIndex = Math.round(scrollX.value / C_WIDTH);
-      if (newIndex !== currentIndex.value) {
-        currentIndex.value = newIndex;
-        runOnJS(triggerHaptic)();
-      }
-    });
-
-    return (
-      <Animated.ScrollView 
-        onScroll={scrollHandler}
-        scrollEventThrottle={16}
-        horizontal 
-        showsHorizontalScrollIndicator={false}
-        pagingEnabled={false}
-        snapToInterval={C_WIDTH}
-        decelerationRate="fast"
-        contentContainerStyle={{ paddingHorizontal: sidePadding}}
-        >
-          {(myLocs.toReversed()).map((item, index) => (<CarouselItem item={item} index={index} scrollX={scrollX} key={index}></CarouselItem>))}
-      </Animated.ScrollView>
-    )
-  }
-
-  function StatsView() {
-    const [activityDropdownOpen, setActivityDropdownOpen] = useState(false);
-    return (
-      <Animated.View style={[styles.body, { backgroundColor: colors.background, height: '100%', margin: 15 }]} entering={FadeInDown.duration(1000)}>
-        <Text style={[styles.head, { color: colors.text }]}>Welcome Back, {athlete?.firstname}</Text>
-        <Image source={{ uri: athlete?.profile }} style={styles.image} />
-        <View style={styles.stats}>
-          <Text style={[styles.sectHead, { color: colors.text }]}>THIS WEEK:</Text>
-          <View style={styles.row}>
-            <Text style={styles.sectBody}>{"MILEAGE\nACTIVE TIME\nDISCOVERIES"}</Text>
-            <View style={{ flexDirection: 'column', flex: 1 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Text style={[styles.sectBody, { marginRight: 5, textAlign: 'right', flex: 1, color: colors.text }]}>{`${meterToMile(thisWeekMileage)} MI`}</Text>
-                {getTrend('mile')}
-              </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Text style={[styles.sectBody, { marginRight: 5, textAlign: 'right', flex: 1, color: colors.text }]}>{`${secsToMin(thisWeekTime)} MIN`}</Text>
-                {getTrend('time')}
-              </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Text style={[styles.sectBody, { marginRight: 5, textAlign: 'right', flex: 1, color: colors.text }]}>{`${thisWeekObjects}`}</Text>
-                {getTrend('obj')}
-              </View>
-            </View>
-          </View>
-        </View>
-        <View style={styles.row}>
-          <TouchableOpacity style={styles.halfbox} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft); setScreen('collection'); }}>
-            <Text style={[styles.sectHead, { color: colors.text, textAlign: 'center' }]}>COLLECTION</Text>
-            {myLocs.length > 0 ?
-              <Image style={styles.collectionThumb} source={IMAGE_MAP[myLocs[myLocs.length - 1].id]} />
-              :
-              <View style={[styles.noLocs]}>
-                <Text style={{ color: 'gray', textAlign: 'center', alignItems: 'center'}}>Nothing found yet!</Text>
-              </View>
-            }
-            <Text style={{ color: 'gray', textAlign: 'center', padding: 10 }}>{myLocs.length} DISCOVERIES</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.halfbox} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft); setScreen('map-all'); }}>
-            <Text style={[styles.sectHead, { color: colors.text, textAlign: 'center' }]}>MY MAP</Text>
-            <MapView
-              style={styles.mapSmallPreview}
-              scrollEnabled={false}
-              region={myLocation ? {
-                latitude: myLocation.latitude,
-                longitude: myLocation.longitude,
-                latitudeDelta: 0.05,
-                longitudeDelta: 0.05,
-              } : undefined}
-            />
-          </TouchableOpacity>
-        </View>
-       { myActivities.length > 0 && 
-        <TouchableOpacity style={styles.activityLog} onPress={() => {setActivityDropdownOpen(!activityDropdownOpen)}}>
-            <View style={[{display: 'flex', flexDirection: 'row', alignItems: 'center'}]}>
-              <Text style={[styles.sectHead, {color: colors.text, flex: 1}]}>ACTIVITY LOG</Text>
-              <IconSymbol size={22} name="chevron.down" color="white" />
-            </View>
-            {activityDropdownOpen && (
-              <View style={[{ display: 'flex', flexDirection: 'column', gap: 8 }]}>
-                <View style={[{ display: 'flex', flexDirection: 'row', gap: 8 }]}>
-                  <View style={styles.calendarSquare}></View>
-                  <View style={styles.calendarSquare}></View>
-                  <View style={styles.calendarSquare}></View>
-                  <View style={styles.calendarSquare}></View>
-                  <View style={styles.calendarSquare}></View>
-                  <View style={styles.calendarSquare}></View>
-                  <View style={styles.calendarSquare}></View>
-                </View>
-                <View style={[{ display: 'flex', flexDirection: 'row', gap: 8 }]}>
-                  <View style={styles.calendarSquare}></View>
-                  <View style={styles.calendarSquare}></View>
-                  <View style={styles.calendarSquare}></View>
-                  <View style={styles.calendarSquare}></View>
-                  <View style={styles.calendarSquare}></View>
-                  <View style={styles.calendarSquare}></View>
-                  <View style={styles.calendarSquare}></View>
-                </View>
-              </View>
-            )}
-          </TouchableOpacity>
-        }
-        
-        <View style={styles.tabBarSpacer} />
-      </Animated.View>
-    );
-  }
-
-  function CollectionView() {
-    return (
-      <Animated.View style={[styles.body, { backgroundColor: colors.background, height: '100%', padding: 5 }]} entering={FadeInDown.duration(1000)}>
-        <View style={{ width: '100%', marginTop: 0 }}>
-          <TouchableOpacity style={styles.backButton} onPress={() => setScreen('stats')}>
-            <IconSymbol size={25} name="chevron.left" color="white" />
-          </TouchableOpacity>
-          <Text style={[styles.head, { color: colors.text }]}>My Collection</Text>
-        </View>
-        <View style={{ flexDirection: 'column', flex: 1, marginBottom: 0, paddingBottom: 0 }}>
-          {myLocs.length > 0
-            ? <LocationsScroll />
-            : <Text style={[styles.bodyEl, { color: 'grey', maxWidth: 350, fontSize: 16, textAlign: 'center' }]}>No locations yet! Try the discover button to look for new ones!</Text>
-          }
-        </View>
-        <View style={[styles.body, styles.bodyEl]}>
-          <TouchableOpacity style={[styles.button, { backgroundColor: 'rgba(94, 141, 140, 1)' }]} onPress={() => setScreen('map')}>
-            <Text style={styles.buttonText}>Discover New</Text>
-          </TouchableOpacity>
-        </View>
-      </Animated.View>
-    );
-  }
-
-  function MyMapView() {
-    return (
-      <Animated.View style={[styles.body, { backgroundColor: colors.background, height: '100%' }]} entering={FadeInDown.duration(700)}>
-        <View style={{ width: '100%', marginTop: 0 }}>
-          <TouchableOpacity style={styles.backButton} onPress={() => setScreen('stats')}>
-            <IconSymbol size={25} name="chevron.left" color="white" />
-          </TouchableOpacity>
-          <Text style={[styles.head, { color: colors.text }]}>Discover Locations</Text>
-        </View>
-        <MapView
-          style={styles.mapPreview}
-          region={myLocation ? {
-            latitude: myLocation.latitude,
-            longitude: myLocation.longitude,
-            latitudeDelta: 0.05,
-            longitudeDelta: 0.05,
-          } : undefined}
-        >
-          <Marker coordinate={myLocation} title="my location" />
-          <Circle
-            center={myLocation}
-            radius={locationRadius}
-            strokeColor="rgba(187, 155, 86, 1)"
-            fillColor="rgba(187, 155, 86, 0.5)"
-          />
-        </MapView>
-        <View style={[styles.bodyEl, { flexDirection: 'column' }]}>
-          <Text style={[styles.sectBody, { marginBottom: 10 }]}>Locations near you:</Text>
-          <FlatList scrollEnabled={false} style={{ width: '100%' }} data={newLocs} renderItem={locationComp} keyExtractor={item => item.id} />
-          <View style={styles.spacer} />
-        </View>
-      </Animated.View>
-    );
-  }
-
-  function MyMapLocationsView() {
-    return (
-      <View style={StyleSheet.absoluteFillObject}>
-        <MapView
-          style={StyleSheet.absoluteFillObject}
-          region={myLocation ? {
-            latitude: myLocation.latitude,
-            longitude: myLocation.longitude,
-            latitudeDelta: 0.05,
-            longitudeDelta: 0.05,
-          } : undefined}
-        >
-          <Marker coordinate={myLocation} title="My Location" />
-          {myLocs.map((item) => (
-            <Marker key={item.id} coordinate={{ latitude: item.latitude, longitude: item.longitude }} title={item.name}>
-              <Image source={IMAGE_MAP[item.id]} style={{ width: 50, height: 50, opacity: 1, borderRadius: 25, borderColor: 'white', borderWidth: 2 }} />
-            </Marker>
-          ))}
-        </MapView>
-        <SafeAreaView style={{ position: 'absolute', top: 0, left: 0 }}>
-          <TouchableOpacity style={styles.backButtonTop} onPress={() => setScreen('stats')}>
-            <IconSymbol size={25} name="chevron.left" color="white" />
-          </TouchableOpacity>
-        </SafeAreaView>
-      </View>
-    );
-  }
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-  <View style={[{ backgroundColor: colors.background, height: '100%', width: '100%',}]}>
+    <View style={{ backgroundColor: colors.background, height: '100%', width: '100%' }}>
       <ScrollView showsVerticalScrollIndicator={false} style={styles.safeBody}>
-        <StatsView />
-        <View style={[{height: 60}]}></View>
+        <StatsView
+          athlete={athlete}
+          colors={colors}
+          thisWeekMileage={thisWeekMileage}
+          thisWeekTime={thisWeekTime}
+          thisWeekObjects={thisWeekObjects}
+          myLocs={myLocs}
+          myActivities={myActivities}
+          myLocation={myLocation}
+          IMAGE_MAP={IMAGE_MAP}
+          getTrend={getTrend}
+          setScreen={setScreen}
+          setImageOverlay={setImageOverlay}
+          setFoundActsLog={setFoundActsLog}
+        />
+        <View style={{ height: 60 }} />
       </ScrollView>
 
-      {/* Modal overlay views */}
+      {/* These overlays are siblings to ScrollView — they never cause it to remount */}
+      <WalkthroughOverlay />
+
+      <ImageOverlay
+        imageOverlay={imageOverlay}
+        setImageOverlay={setImageOverlay}
+        foundActsLog={foundActsLog}
+        colors={colors}
+        IMAGE_MAP={IMAGE_MAP}
+        meterToMile={meterToMile}
+      />
+
       {screenSetting !== 'stats' && (
         <Animated.View
           entering={SlideInRight.duration(1000)}
           style={{
-            position: 'absolute',
-            top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: colors.background,
-            zIndex: 10,
+            position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: colors.background, zIndex: 10,
           }}
         >
-          {screenSetting === 'map-all' ? <MyMapLocationsView />
-          :
-          <ScrollView showsVerticalScrollIndicator={false} style={[styles.safeBody, { height: '100%' }]}>
-            {screenSetting === 'collection' && <CollectionView />}
-            {screenSetting === 'map' && <MyMapView />}
-            <View style={[{height: 40}]}></View>
-          </ScrollView>
-          }
-
+          {screenSetting === 'map-all' ? (
+            <MyMapLocationsView
+              myLocation={myLocation}
+              myLocs={myLocs}
+              IMAGE_MAP={IMAGE_MAP}
+              setScreen={setScreen}
+            />
+          ) : (
+            <ScrollView showsVerticalScrollIndicator={false} style={[styles.safeBody, { height: '100%' }]}>
+              {screenSetting === 'collection' && (
+                <CollectionView
+                  colors={colors}
+                  myLocs={myLocs}
+                  IMAGE_MAP={IMAGE_MAP}
+                  setScreen={setScreen}
+                />
+              )}
+              {screenSetting === 'map' && (
+                <MyMapView
+                  colors={colors}
+                  myLocation={myLocation}
+                  newLocs={newLocs}
+                  setScreen={setScreen}
+                  setImageOverlay={setImageOverlay}
+                  getDistanceAway={getDistanceAway}
+                />
+              )}
+              <View style={{ height: 40 }} />
+            </ScrollView>
+          )}
         </Animated.View>
       )}
     </View>
-    );
+  );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
-  image: {
-    width: 150,
-    height: 150,
-    borderRadius: 100,
-  },
-  spacer: {
-    height: 60,
-  },
-   carouselImage: {
-    height: 400,
-    width: 300,
-    borderRadius: 20,
-  },
-  safeBody: {
-    marginTop: 40,
-  },
+  image: { width: 150, height: 150, borderRadius: 100 },
+  spacer: { height: 60 },
+  carouselImage: { height: 400, width: 300, borderRadius: 20 },
+  safeBody: { marginTop: 40 },
   activityLog: {
     backgroundColor: 'rgba(96, 96, 96, 0.4)',
-    borderRadius: 30,
-    width: '100%',
-    padding: 15,
-    alignItems: 'center',
-    gap: 10,
+    borderRadius: 30, width: '100%',
+    padding: 15, paddingHorizontal: 16,
+    alignItems: 'center', gap: 10,
   },
   noLocs: {
-    borderStyle: 'dashed',
-    borderColor: '#7a7a7a',
-    borderWidth: 1,
-    padding: 15,
-    borderRadius: 20,
-    height: 100,
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderStyle: 'dashed', borderColor: '#7a7a7a', borderWidth: 1,
+    padding: 15, borderRadius: 20, height: 100,
+    alignItems: 'center', justifyContent: 'center',
   },
-  collectionThumb: {
-    height: 100,
-    borderRadius: 20,
-    width: '100%'
+  collectionThumb: { height: 100, borderRadius: 20, width: '100%' },
+  calendarSquare:  { width: 40, height: 40, borderRadius: 10 },
+  carouselTextContainer: {
+    marginTop: 10, flexDirection: 'column',
+    justifyContent: 'center', alignItems: 'center', gap: 10,
   },
-  calendarSquare: {
-    backgroundColor: 'gray',
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-  },
-   carouselTextContainer: {
-    marginTop: 10,
-    display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 10,
-  },
-  tabBarSpacer: {
-    minHeight: 10,
-    flexGrow: 1,
-  },
+  tabBarSpacer: { minHeight: 10, flexGrow: 1 },
   backButtonTop: {
-    width: 40,
-    height: 40,
-    marginTop: 30,
-    marginLeft: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 30,
-    padding: 10,
+    width: 40, height: 40, marginTop: 30, marginLeft: 10,
+    alignItems: 'center', justifyContent: 'center',
+    borderRadius: 30, padding: 10,
     backgroundColor: 'rgba(0,0,0,0.4)',
-    position: 'absolute',
-    top: 10,
-    left: 10,
-    zIndex: 20,
+    position: 'absolute', top: 10, left: 10, zIndex: 20,
   },
-  mapPreview: {
-    width: '100%',
-    height: 300,
-    margin: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  mapSmallPreview: {
-    width: '100%',
-    height: 125,
-    borderRadius: 20,
-  },
-  button: {
-    width: '100%',
-    margin: 10,
-    backgroundColor: 'rgba(80, 119, 142, 1)',
-    borderRadius: 10,
-    padding: 10,
-  },
+  mapPreview:      { width: '100%', height: 300, margin: 10, alignItems: 'center', justifyContent: 'center' },
+  mapSmallPreview: { width: '100%', height: 125, borderRadius: 20 },
+  button:          { width: '100%', margin: 10, backgroundColor: 'rgba(80, 119, 142, 1)', borderRadius: 10, padding: 10 },
   backButton: {
-    width: 40,
-    height: 40,
-    marginLeft: 10,
+    width: 40, height: 40, marginLeft: 10,
     backgroundColor: 'rgba(96, 96, 96, 0.4)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 30,
-    padding: 10,
+    alignItems: 'center', justifyContent: 'center',
+    borderRadius: 30, padding: 10,
   },
-  buttonText: {
-    color: 'white',
-    textAlign: 'center',
-    fontSize: 17,
-  },
-  titleContainer: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  body: {
-    flexDirection: 'column',
-    fontFamily: 'Radio Canada Big',
-    // margin: 20,
-    gap: 15,
-    alignItems: 'center',
-  },
-  bodyEl: {
-    paddingLeft: 10,
-    paddingRight: 10,
-    width: '100%',
-  },
-  row: {
-    flexDirection: 'row',
-    gap: 10,
-    width: '100%',
-  },
-  head: {
-    fontSize: 30,
-    fontWeight: '600',
-    fontFamily: 'Radio Canada Big',
-    textAlign: 'center',
-  },
-  textBox: {
-    borderColor: 'gray',
-    borderWidth: 1,
-    width: 200,
-  },
-  stats: {
-    width: '100%',
-    borderRadius: 30,
-    padding: 10,
-  },
-  locationList: {
-    backgroundColor: 'rgba(96, 96, 96, 0.4)',
-    width: '100%',
-    borderRadius: 30,
-    padding: 20,
-  },
-  sectHead: {
-    fontSize: 16,
-    lineHeight: 33,
-    fontWeight: 500,
-  },
-  sectBody: {
-    color: '#BEBEBE',
-    fontSize: 16,
-    lineHeight: 25,
-  },
+  buttonText:   { color: 'white', textAlign: 'center', fontSize: 17 },
+  body:         { flexDirection: 'column', fontFamily: 'Radio Canada Big', gap: 15, alignItems: 'center' },
+  bodyEl:       { paddingLeft: 10, paddingRight: 10, width: '100%' },
+  row:          { flexDirection: 'row', gap: 10, width: '100%' },
+  head:         { fontSize: 30, fontWeight: '600', fontFamily: 'Radio Canada Big', textAlign: 'center' },
+  textBox:      { borderColor: 'gray', borderWidth: 1, width: 200 },
+  stats:        { width: '100%', borderRadius: 30, padding: 10 },
+  locationList: { backgroundColor: 'rgba(96, 96, 96, 0.4)', width: '100%', borderRadius: 30, padding: 20 },
+  sectHead:     { fontSize: 18, lineHeight: 33, fontWeight: '500' },
+  sectBody:     { color: '#BEBEBE', fontSize: 16, lineHeight: 25 },
   halfbox: {
     backgroundColor: 'rgba(96, 96, 96, 0.4)',
-    flex: 1,
-    height: 200,
-    borderRadius: 30,
-    padding: 20,
+    flex: 1, height: 200, borderRadius: 30, padding: 20,
   },
 });

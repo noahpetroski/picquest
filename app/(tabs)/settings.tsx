@@ -6,6 +6,7 @@ import { useStrava } from '@/context/StravaContext';
 import { useMystLoc } from '@/context/MystLocContext';
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import * as SecureStore from 'expo-secure-store';
 
 // auth code: 51ddb1cd07ff831802f44d705754b709aa13e1c5
 // client id: 205554
@@ -33,11 +34,15 @@ export default function SettingsScreen() {
   const {athlete, logout, changeSendPQ, sendPQ} = useStrava();
   const {resetProgress} = useMystLoc();
 
-  const resetAlert = () => {
+  const resetAlert = async () => {
     Alert.alert(
       'Are you sure you want to erase all information?',
       'This will delete all activities, discoveries, and progress stored in PicQuest. Your profile will still be available.',
-      [{text: 'Cancel'}, {text: 'Yes', onPress: () => {resetProgress(); logout();},}]
+      [{text: 'Cancel'}, 
+        {text: 'Yes', onPress: async () => {
+          resetProgress(); 
+          await SecureStore.setItemAsync('walkthroughSeen', 'false');
+          logout();},}]
     );
   }
 
@@ -53,12 +58,12 @@ export default function SettingsScreen() {
               <Text style={{color:colors.text}}>Connected with your Strava account</Text>
             </View>
           </View>
-          <View style={styles.row}>
+          <View style={[styles.row, {width: '90%'}]}>
             <Checkbox value={sendPQ} onValueChange={changeSendPQ} color={sendPQ ? '#50778E' : undefined}/>
             <Text style={[{color: colors.text}]}>Allow PicQuest to edit Strava activity descriptions</Text>
 
           </View>
-          <TouchableOpacity style={[styles.button, {backgroundColor: 'gray'}]} onPress={() => {Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); resetAlert();}}><Text style={styles.buttonText}>Reset Progress</Text></TouchableOpacity>
+          <TouchableOpacity style={[styles.button, {backgroundColor: 'none'}]} onPress={() => {Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); resetAlert();}}><Text style={[styles.buttonText, {color: '#50778E'}]}>Reset Progress</Text></TouchableOpacity>
           <TouchableOpacity style={styles.button} onPress={() => {Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); logout();}}><Text style={styles.buttonText}>Sign Out</Text></TouchableOpacity>
         </Animated.View>
     </SafeAreaView>

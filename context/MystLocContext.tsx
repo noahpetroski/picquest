@@ -115,9 +115,11 @@ export function MystLocProvider({ children }) {
     }
 
     // Appends a new activity and persists
-    async function addActivity(newActivity: any) {
+    async function addActivity(newActivity: any, foundSpots) {
+        let updatedActivity = newActivity;
+        updatedActivity.discoveries = foundSpots;
         setMyActivities(prev => {
-            const updated = [...prev, newActivity];
+            const updated = [...prev, updatedActivity];
             saveToStorage(STORAGE_KEYS.MY_ACTIVITIES, updated);
             return updated;
         });

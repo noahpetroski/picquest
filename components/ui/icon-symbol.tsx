@@ -27,7 +27,8 @@ const MAPPING = {
   'figure.run' : 'directions-run',
   'figure.walk' : 'directions-walk',
   'figure.outdoor.cycle' : 'directions-bike',
-  'heart.badge.bolt' : 'monitor-heart'
+  'heart.badge.bolt' : 'monitor-heart',
+  'xmark' : 'close'
 } as IconMapping;
 
 /**

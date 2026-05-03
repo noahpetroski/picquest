@@ -17,8 +17,8 @@ const StravaContext = createContext({
 // Strava authorization
 WebBrowser.maybeCompleteAuthSession();
 
-const CLIENT_ID = '207104';
-const CLIENT_SECRET = '0d24a6cd22aef5056cb05e553ef94f1c5ee43401';
+const CLIENT_ID = process.env.CLIENT_ID;
+const CLIENT_SECRET = process.env.CLIENT_SECRET;
 
 const discovery = {
   authorizationEndpoint: 'https://www.strava.com/oauth/mobile/authorize',
