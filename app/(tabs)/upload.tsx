@@ -1,13 +1,15 @@
 import { useFonts } from 'expo-font';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, memo, useCallback } from 'react';
 import { SafeAreaView, TouchableOpacity, Image, ScrollView, StyleSheet, Text, FlatList, TextInput, useColorScheme, View, useAnimatedValue } from 'react-native';
 import { useStrava } from '@/context/StravaContext';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useMystLoc } from '@/context/MystLocContext';
 import polyline from '@mapbox/polyline';
+import * as SecureStore from 'expo-secure-store';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import Animated, { FadeInDown, FadeIn, FadeInUp, useSharedValue, withTiming, useAnimatedStyle } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import { useFocusEffect } from '@react-navigation/native';
 
 export default function TabTwoScreen() {
   // Mystery Locations
@@ -22,15 +24,9 @@ export default function TabTwoScreen() {
     'Radio Canada Big':require('../../assets/fonts/Radio_Canada_Big/RadioCanadaBig.ttf')
   });
 
-  const lightColors = {
-    background: 'white',
-    text: 'black'
-  }
+  const lightColors = { background: 'white', text: 'black', gray1: '#dcdcdc', gray2: '#787878', tealHighlight: "#67A09F", mapTeal: "#ffa304"};
+  const darkColors  = { background: '#2C2C2C', text: 'white', gray1: '#404040', gray2: '#898989', tealHighlight: "#7ACDCB", mapTeal: "#ffa304"};
 
-  const darkColors = {
-    background: '#2C2C2C',
-    text: 'white'
-  }
   const colorScheme = useColorScheme();
   const colors = colorScheme == 'dark' ? darkColors : lightColors;
 
@@ -73,6 +69,74 @@ useEffect(() => {
     setFoundSpots(checkInRadius(decoded));
     setShowMysterySpot(false);
   };
+
+  // ─── WalkthroughOverlay ───────────────────────────────────────────────────────
+  
+  const WALKTHROUGH_STEPS = [
+    { title: 'Ready to discover?', body: "Select one of your recent Strava activities.", image: require('@/assets/images/activities.png') },
+    { title: 'Activity Preview',   body: 'View information about an activity.',           image: require('@/assets/images/tutorial/activity-preview.png') },
+    { title: 'Unlock Discoveries', body: 'Reveal the mystery locations you found in this activity.', image: require('@/assets/images/tutorial/found-spots.png') },
+    { title: 'Save Activity', body: 'Make sure you save your activity to PicQuest with the upload button!',     image: require('@/assets/images/tutorial/add-act.png') },
+  ];
+  
+  
+  const WalkthroughOverlay = memo(() => {
+    const [walkthroughStep, setWalkthroughStep] = useState(0);
+  
+    useFocusEffect(
+      useCallback(() => {
+        (async () => {
+          const seen = await SecureStore.getItemAsync('your-unique-key');
+          if (!seen) {
+            setWalkthroughStep(1);
+            await SecureStore.setItemAsync('your-unique-key', 'true');
+          }
+        })();
+      }, [])
+    );
+  
+    if (walkthroughStep === 0 || walkthroughStep > WALKTHROUGH_STEPS.length) return null;
+    const step = WALKTHROUGH_STEPS[walkthroughStep - 1];
+  
+    return (
+      <Animated.View entering={FadeIn.duration(300)} style={overlayStyles.backdrop}>
+        <Animated.View entering={FadeInDown.duration(400)} style={[overlayStyles.card]}>
+          <Text style={overlayStyles.title}>{step.title}</Text>
+          <Text style={overlayStyles.body}>{step.body}</Text>
+          <Image style={[{ minWidth: 100, maxWidth: 300, minHeight: 300, maxHeight: 300}]} resizeMode="contain" source={step.image} />
+          <View style={overlayStyles.footer}>
+            <Text style={{ color: 'gray' }}>{walkthroughStep}/{WALKTHROUGH_STEPS.length}</Text>
+            <TouchableOpacity
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setWalkthroughStep(s => s + 1);
+              }}
+            >
+              <Text style={overlayStyles.nextBtn}>
+                {walkthroughStep < WALKTHROUGH_STEPS.length ? 'Next →' : 'Done'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+      </Animated.View>
+    );
+  });
+  
+  const overlayStyles = StyleSheet.create({
+    backdrop: {
+      position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+      backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 100,
+      justifyContent: 'center', alignItems: 'center',
+    },
+    card: {
+      backgroundColor: '#2C2C2C', borderRadius: 20,
+      padding: 25, margin: 20, gap: 12,
+    },
+    title: { color: 'white', fontFamily: 'Radio Canada Big', fontSize: 22, fontWeight: '600' },
+    body:  { color: '#BEBEBE', fontSize: 16, fontFamily: 'Radio Canada Big' },
+    footer: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
+    nextBtn: { color: '#7ACDCB', fontSize: 16, fontFamily: 'Radio Canada Big' },
+  });
 
 
   // Map Stuff
@@ -224,7 +288,7 @@ function MysterySpotReveal() {
     const notOtherTypes = ['Run', 'Walk', 'TrailRun', 'Walk', 'Ride', 'Run'];
     return (
       <Animated.View style={[{width: '100%'}]} entering={FadeInDown.delay(index*100)}>
-        <TouchableOpacity onPress={() => {Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid); pickActivity(item)}} style={[styles.stats, {width: '100%', marginBottom: 10, display: 'flex', flexDirection: 'row'}]}>
+        <TouchableOpacity onPress={() => {Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid); pickActivity(item)}} style={[styles.stats, {backgroundColor: colors.gray1, width: '100%', marginBottom: 10, display: 'flex', flexDirection: 'row'}]}>
           <View style={[{display: 'flex', width: '100%', flexDirection: 'row', gap: 10}]}>
             <View style={[{display: 'flex', flexDirection: 'column', flex: 1}]}>
               <Text style={[{fontWeight: 500, color: colors.text}]}>{item.name}</Text>
@@ -244,14 +308,23 @@ function MysterySpotReveal() {
   }
   
     return (
-      <SafeAreaView style={[{backgroundColor: colors.background}]}>
+      <View style={[{backgroundColor: colors.background, paddingTop: 40}]}>
+        <WalkthroughOverlay />
       <View style={{height: '100%'}}>
+        
         {mysteryWindow == "closed" ?
         <ScrollView style={{height: '100%'}}>
           <Animated.View style={[styles.body, {backgroundColor: colors.background, height: '100%'}]} entering={FadeInDown.duration(1000)}>
             {selectedActivity != null ?
               <Animated.View style={[{width: '100%', display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center'}]} entering={FadeIn.duration(1000)}>
                 <Text style={[styles.textStyle, styles.head, {color: colors.text}]}>Add Activity</Text>
+                <View style={[{width: '100%', display: 'flex', flexDirection: 'row', alignItems: 'flex-start', gap: 10}]}>
+                  <TouchableOpacity style={styles.backButton} onPress={() => selectActivity(null)}>
+                    <IconSymbol size={25} name="chevron.left" color="white" />
+                  </TouchableOpacity>
+
+                </View>
+                
                 {currCoords.length != 0 ?
                   <MapView
                     style={styles.mapPreview}
@@ -265,7 +338,7 @@ function MysterySpotReveal() {
                       <View>
                         <Polyline
                         coordinates={currCoords}
-                        strokeColor="rgb(233, 192, 9)"
+                        strokeColor={colors.mapTeal}
                         strokeWidth={3}
                         />
                         {showMysterySpot && 
@@ -304,15 +377,15 @@ function MysterySpotReveal() {
                 <View style={[{display: 'flex', flexDirection: 'column', width: '100%'}]}>
                   <FlatList scrollEnabled={false} style={[{width: '100%'}]} data={newActivities} renderItem={activityComp} keyExtractor={item => item.id} />
                 </View>
+                <View style={[{height: 60}]}></View>
               </View>
             }
           </Animated.View>
           </ScrollView>
           : <MysterySpotReveal />
         }
-        <View style={[{height: 40}]}></View>
       </View>
-    </SafeAreaView>
+    </View>
     );
 }
 
@@ -357,7 +430,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   stats: {
-    backgroundColor: 'rgba(96, 96, 96, 0.4)',
     width: '100%',
     borderRadius: 30,
     padding: 20,

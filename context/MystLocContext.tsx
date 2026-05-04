@@ -165,7 +165,7 @@ export function MystLocProvider({ children }) {
             addActivity,
             resetProgress,
             checkInRadius,
-            IMAGE_MAP
+            IMAGE_MAP,
         }}>
             {children}
         </MystLocContext.Provider>

@@ -19,15 +19,9 @@ export default function SettingsScreen() {
         'Radio Canada Big':require('../../assets/fonts/Radio_Canada_Big/RadioCanadaBig.ttf')
   });
 
-  const lightColors = {
-    background: 'white',
-    text: 'black'
-  }
+  const lightColors = { background: 'white', text: 'black', gray1: '#dcdcdc', gray2: '#787878' };
+  const darkColors  = { background: '#2C2C2C', text: 'white', gray1: '#404040', gray2: '#898989' };
 
-  const darkColors = {
-    background: '#2C2C2C',
-    text: 'white'
-  }
   const colorScheme = useColorScheme();
   const colors = colorScheme == 'dark' ? darkColors : lightColors;
 
@@ -40,8 +34,9 @@ export default function SettingsScreen() {
       'This will delete all activities, discoveries, and progress stored in PicQuest. Your profile will still be available.',
       [{text: 'Cancel'}, 
         {text: 'Yes', onPress: async () => {
-          resetProgress(); 
-          await SecureStore.setItemAsync('walkthroughSeen', 'false');
+          await resetProgress(); 
+          await SecureStore.deleteItemAsync('walkthroughSeen');
+          await SecureStore.deleteItemAsync('act-walkthroughSeen');
           logout();},}]
     );
   }
@@ -51,11 +46,11 @@ export default function SettingsScreen() {
     <SafeAreaView style={[{backgroundColor: colors.background}]}>
         <Animated.View style={[styles.body, {backgroundColor: colors.background, height: '100%', width: '100%'}]} entering={FadeInDown.duration(1000)}>
           <Text style={[styles.head, {color: colors.text}]}>Settings</Text>
-          <View style={[styles.stats, styles.row]}>
+          <View style={[styles.row, {gap: 20}]}>
             <Image source={{ uri: athlete?.profile}} style={styles.image}></Image> 
-            <View style={[{display: 'flex', justifyContent:'center'}]}>
+            <View style={[{display: 'flex', flex: 1, gap: 5, justifyContent:'center'}]}>
               <Text style={[styles.h2, {color:colors.text}]}>{`${athlete?.firstname} ${athlete?.lastname}`}</Text>
-              <Text style={{color:colors.text}}>Connected with your Strava account</Text>
+              <Text style={{color:colors.gray2}}>Connected with your Strava account</Text>
             </View>
           </View>
           <View style={[styles.row, {width: '90%'}]}>
@@ -122,7 +117,6 @@ const styles = StyleSheet.create({
     width: 200
   },
   stats: {
-    backgroundColor: 'rgba(96, 96, 96, 0.4)',
     width: '100%',
     padding: 20,
     gap: 5,

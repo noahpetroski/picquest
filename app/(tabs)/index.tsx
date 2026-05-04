@@ -11,7 +11,7 @@ import {
   StyleSheet, Text, TouchableOpacity, useColorScheme, View,
 } from 'react-native';
 import Animated, {
-  FadeIn, FadeInDown, interpolate, SlideInRight,
+  FadeIn, FadeInDown, interpolate, SlideInLeft, SlideInRight,
   useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, ZoomIn,
 } from 'react-native-reanimated';
 import MapView, { Circle, Marker } from 'react-native-maps';
@@ -24,8 +24,8 @@ const C_ITEM_WIDTH = SCREEN_WIDTH * 0.8;
 const C_MARGIN = 5;
 const C_WIDTH = C_ITEM_WIDTH + C_MARGIN * 2;
 
-const lightColors = { background: 'white', text: 'black', gray1: '#e8e8e8', gray2: '#313131' };
-const darkColors  = { background: '#2C2C2C', text: 'white', gray1: '#404040', gray2: '#898989' };
+const lightColors = { background: 'white', text: 'black', gray1: '#dcdcdc', gray2: '#787878', tealHighlight: "#67A09F"};
+const darkColors  = { background: '#2C2C2C', text: 'white', gray1: '#404040', gray2: '#898989', tealHighlight: "#7ACDCB"};
 
 // ─── Pure helpers (no component state needed) ────────────────────────────────
 
@@ -51,10 +51,14 @@ function dateFormat(isoDate: string) {
 // ─── WalkthroughOverlay ───────────────────────────────────────────────────────
 
 const WALKTHROUGH_STEPS = [
-  { title: 'Your Stats',   body: 'Check your mileage, active time, and discoveries for the past 7 days.' },
-  { title: 'Collection',  body: 'See all of your discoveries, or search for more.' },
-  { title: 'Your Map',    body: 'View all of your discoveries on a map.' },
+  { title: 'Glad we found you!', body: "Your city is full of secrets. Use photo clues and distance hints to track them down — just sync a Strava activity and start discovering. Here\'s everything you need to know.", image: require('@/assets/images/PQ-white.png') },
+  { title: 'Your Stats',         body: 'Check your mileage, active time, and discoveries for the past 7 days.',           image: require('@/assets/images/tutorial/stats.png') },
+  { title: 'Collection',         body: 'Look for locations close to you, including pictures of them and an interactive map.',              image: require('@/assets/images/tutorial/collection-1.png') },
+  { title: 'Collection: Discover New', body: 'Look for locations close to you, including pictures of them and an interactive map.',     image: require('@/assets/images/tutorial/collection-2.png') },
+  { title: 'Your Map',           body: 'View all of your discoveries on a map.',             image: require('@/assets/images/tutorial/map-view.png') },
+  { title: 'Activity Log',       body: "See everything you\'ve uploaded to PicQuest.",        image: require('@/assets/images/tutorial/activity-log.png') },
 ];
+
 
 const WalkthroughOverlay = memo(() => {
   const [walkthroughStep, setWalkthroughStep] = useState(0);
@@ -74,9 +78,10 @@ const WalkthroughOverlay = memo(() => {
 
   return (
     <Animated.View entering={FadeIn.duration(300)} style={overlayStyles.backdrop}>
-      <Animated.View entering={FadeInDown.duration(400)} style={overlayStyles.card}>
+      <Animated.View entering={FadeInDown.duration(400)} style={[overlayStyles.card]}>
         <Text style={overlayStyles.title}>{step.title}</Text>
         <Text style={overlayStyles.body}>{step.body}</Text>
+        <Image style={[{ minWidth: 100, maxWidth: 300, minHeight: 300, maxHeight: 300}]} resizeMode="contain" source={step.image} />
         <View style={overlayStyles.footer}>
           <Text style={{ color: 'gray' }}>{walkthroughStep}/{WALKTHROUGH_STEPS.length}</Text>
           <TouchableOpacity
@@ -103,7 +108,7 @@ const overlayStyles = StyleSheet.create({
   },
   card: {
     backgroundColor: '#2C2C2C', borderRadius: 20,
-    padding: 25, margin: 30, gap: 12,
+    padding: 25, margin: 20, gap: 12,
   },
   title: { color: 'white', fontFamily: 'Radio Canada Big', fontSize: 22, fontWeight: '600' },
   body:  { color: '#BEBEBE', fontSize: 16, fontFamily: 'Radio Canada Big' },
@@ -125,36 +130,45 @@ interface ImageOverlayProps {
 const ImageOverlay = memo(({
   imageOverlay, setImageOverlay, foundActsLog, colors, IMAGE_MAP,
 }: ImageOverlayProps) => {
+  const notOtherTypes = ['Run', 'Walk', 'TrailRun', 'Walk', 'Ride', 'Run'];
   if (imageOverlay == null) return null;
 
   return (
     <Animated.View entering={FadeIn.duration(300)} style={overlayStyles.backdrop}>
       <Animated.View entering={FadeInDown.duration(400)} style={{
-        borderRadius: 20, padding: 25, margin: 10, gap: 12, width: '100%',
+        borderRadius: 20, padding: 25, margin: 10, gap: 12, width: '100%', display: 'flex', alignItems: 'center'
       }}>
         {imageOverlay === 'activity-log' ? (
           <Animated.View entering={ZoomIn} style={[{
-            backgroundColor: colors.gray1, padding: 15, borderRadius: 10, width: '100%',
+            backgroundColor: colors.gray1, paddingVertical: 15, borderRadius: 25, width: '100%',
           }]}>
-            <View style={{ height: 0 }} />
-            <TouchableOpacity
-              style={[styles.backButton, { position: 'absolute', zIndex: 1, top: 10, left: 0 }]}
-              onPress={() => setImageOverlay(null)}
-            >
-              <IconSymbol size={20} name="xmark" color="white" />
-            </TouchableOpacity>
-            <Text style={{ fontSize: 20, color: colors.gray2, textAlign: 'right' }}>
-              {foundActsLog[1] ? dateFormat(foundActsLog[1]) : ''}
-            </Text>
+            <View style={[styles.row, {alignItems: 'center', paddingHorizontal: 15, marginBottom: 10}]}>
+              <Text style={{ fontSize: 20, color: colors.gray2, flex: 1 }}>
+                {foundActsLog[1] ? dateFormat(foundActsLog[1]) : ''}
+              </Text>
+              <TouchableOpacity
+                style={[styles.backButton, {}]}
+                onPress={() => setImageOverlay(null)}
+              >
+                <IconSymbol size={20} name="xmark" color="white" />
+              </TouchableOpacity>
+            </View>
             {foundActsLog[0]?.map((item: any, index: number) => (
-              <View key={index} style={{ padding: 15, borderRadius: 10 }}>
+              <View key={index} style={{ paddingHorizontal: 20, borderRadius: 10, width: '100%'}}>
                 <Text style={{ fontWeight: '400', fontSize: 18, color: colors.text }}>{item.name}</Text>
-                <Text style={{ fontWeight: '100', fontSize: 16, color: colors.text }}>
-                  {`${meterToMile(item.distance)} MI`}
-                </Text>
-                <View>
+                <View style={[styles.row, {alignItems: 'center'}]}>
+                  <Text style={{ fontWeight: '200', fontSize: 16, color: colors.text }}>
+                    {`${meterToMile(item.distance)} MI`}
+                  </Text>
+                  {(item.sport_type == 'Run' || item.sport_type == 'TrailRun') && <IconSymbol size={25} name="figure.run" color={colors.tealHighlight} />}
+                  {(item.sport_type == 'Walk' || item.sport_type == 'Hike') && <IconSymbol size={25} name="figure.walk" color={colors.tealHighlight} />}
+                  {(item.sport_type == 'Ride' || item.sport_type == 'MountainBikeRide') && <IconSymbol size={25} name="figure.outdoor.cycle" color={colors.tealHighlight} />}
+                  {!notOtherTypes.includes(item.sport_type) && <IconSymbol size={2} name="heart.badge.bolt" color={colors.tealHighlight} />}
+                </View>
+                
+                <View style={[{marginTop: 5, gap: 5}]}>
                   {item.discoveries?.map((ditem: any, dindex: number) => (
-                    <View key={dindex} style={{ flexDirection: 'row', margin: 5, alignItems: 'center', gap: 5 }}>
+                    <View key={dindex} style={{ flexDirection: 'row', marginLeft: 15, alignItems: 'center', gap:5 }}>
                       <Image
                         source={IMAGE_MAP[ditem.id]}
                         style={{ width: 25, height: 25, borderRadius: 25, borderColor: 'white', borderWidth: 1 }}
@@ -172,7 +186,7 @@ const ImageOverlay = memo(({
         ) : (
           <Animated.View entering={ZoomIn}>
             <TouchableOpacity
-              style={[styles.backButton, { position: 'absolute', zIndex: 1, top: 10 }]}
+              style={[styles.backButton, { position: 'absolute', zIndex: 1, top: 10, right: 10}]}
               onPress={() => setImageOverlay(null)}
             >
               <IconSymbol size={25} name="xmark" color="white" />
@@ -214,7 +228,7 @@ const CarouselItem = memo(({ item, index, scrollX, colors, IMAGE_MAP }: Carousel
       )}
       <View style={styles.carouselTextContainer}>
         <Text style={{ color: colors.text, fontFamily: 'Radio Canada Big', fontSize: 20 }}>{item.name}</Text>
-        <Text style={styles.sectBody}>FOUND {item.date}</Text>
+        <Text style={[styles.sectBody, {color: colors.gray2}]}>FOUND {item.date}</Text>
       </View>
     </Animated.View>
   );
@@ -308,11 +322,11 @@ const CalendarSquares = memo(({ myActivities, colors, onDayPress }: CalendarSqua
     <View style={{ gap: 8 }}>
       <View style={{ flexDirection: 'row', gap: 10, justifyContent: 'center', alignItems: 'center' }}>
         <TouchableOpacity style={{ borderRadius: 15, padding: 5 }} onPress={prevMonth}>
-          <IconSymbol name="chevron.left" size={20} color="white" />
+          <IconSymbol name="chevron.left" size={20} color={colors.text} />
         </TouchableOpacity>
         <Text style={{ color: colors.text, fontSize: 15 }}>{MONTH_NAMES[viewMonth]} {viewYear}</Text>
         <TouchableOpacity style={{ borderRadius: 15, padding: 5 }} onPress={nextMonth}>
-          <IconSymbol name="chevron.right" size={20} color="white" />
+          <IconSymbol name="chevron.right" size={20} color={colors.text} />
         </TouchableOpacity>
       </View>
 
@@ -375,13 +389,13 @@ const StatsView = memo(({
       style={[styles.body, { backgroundColor: colors.background, height: '100%', margin: 15 }]}
       entering={FadeInDown.duration(1000)}
     >
-      <Text style={[styles.head, { color: colors.text }]}>Welcome, {athlete.firstname}</Text>
+      <Text style={[styles.head, { color: colors.text }]}>Welcome, {athlete?.firstname}</Text>
       <Image source={{ uri: athlete?.profile }} style={styles.image} />
 
       <View style={styles.stats}>
         <Text style={[styles.sectHead, { color: colors.text }]}>THIS WEEK:</Text>
         <View style={styles.row}>
-          <Text style={styles.sectBody}>{'MILEAGE\nACTIVE TIME\nDISCOVERIES'}</Text>
+          <Text style={[styles.sectBody, {color: colors.gray2}]}>{'MILEAGE\nACTIVE TIME\nDISCOVERIES'}</Text>
           <View style={{ flexDirection: 'column', flex: 1 }}>
             {[
               { label: `${meterToMile(thisWeekMileage)} MI`, trend: 'mile' },
@@ -401,7 +415,7 @@ const StatsView = memo(({
 
       <View style={styles.row}>
         <TouchableOpacity
-          style={styles.halfbox}
+          style={[styles.halfbox, {backgroundColor: colors.gray1}]}
           onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft); setScreen('collection'); }}
         >
           <Text style={[styles.sectHead, { color: colors.text, textAlign: 'center' }]}>COLLECTION</Text>
@@ -412,13 +426,13 @@ const StatsView = memo(({
               <Text style={{ color: 'gray', textAlign: 'center' }}>Nothing found yet!</Text>
             </View>
           )}
-          <Text style={{ color: 'gray', textAlign: 'center', padding: 10 }}>
+          <Text style={{ color: colors.gray2, textAlign: 'center', padding: 10 }}>
             {myLocs.length} {myLocs.length === 1 ? 'DISCOVERY' : 'DISCOVERIES'}
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.halfbox}
+          style={[styles.halfbox, {backgroundColor: colors.gray1}]}
           onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft); setScreen('map-all'); }}
         >
           <Text style={[styles.sectHead, { color: colors.text, textAlign: 'center' }]}>MY MAP</Text>
@@ -437,12 +451,12 @@ const StatsView = memo(({
 
       {myActivities.length > 0 && (
         <TouchableOpacity
-          style={styles.activityLog}
+          style={[styles.activityLog, {backgroundColor: colors.gray1}]}
           onPress={() => setActivityDropdownOpen(o => !o)}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Text style={[styles.sectHead, { color: colors.text, flex: 1 }]}>ACTIVITY LOG</Text>
-            <IconSymbol size={25} name="chevron.down" color="white" />
+            <IconSymbol size={25} name="chevron.down" color={colors.text} />
           </View>
           {activityDropdownOpen && (
             <CalendarSquares
@@ -475,7 +489,7 @@ const CollectionView = memo(({ colors, myLocs, IMAGE_MAP, setScreen }: Collectio
   >
     <View style={{ width: '100%', marginTop: 0 }}>
       <TouchableOpacity style={styles.backButton} onPress={() => setScreen('stats')}>
-        <IconSymbol size={25} name="chevron.left" color="white" />
+        <IconSymbol size={25} name="chevron.left" color={"white"} />
       </TouchableOpacity>
       <Text style={[styles.head, { color: colors.text }]}>My Collection</Text>
     </View>
@@ -524,7 +538,7 @@ const MyMapView = memo(({
           selectNewLocation(item);
           setLocationRadius(parseFloat(getDistanceAway(item)) / 0.000621371);
         }}
-        style={[styles.locationList, { marginBottom: 10 }]}
+        style={[styles.locationList, { marginBottom: 10, backgroundColor: colors.gray1}]}
       >
         {selectedLocation === item ? (
           <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -570,12 +584,12 @@ const MyMapView = memo(({
         <Circle
           center={myLocation}
           radius={locationRadius}
-          strokeColor="rgba(187, 155, 86, 1)"
-          fillColor="rgba(187, 155, 86, 0.5)"
+          strokeColor={colors.tealHighlight}
+          fillColor="rgba(122, 205, 203, 0.5)"
         />
       </MapView>
-      <View style={[styles.bodyEl, { flexDirection: 'column' }]}>
-        <Text style={[styles.sectBody, { marginBottom: 10 }]}>Locations near you:</Text>
+      <View style={[styles.bodyEl, { flexDirection: 'column'}]}>
+        <Text style={[styles.sectBody, { marginBottom: 10, color: colors.gray2}]}>Locations near you:</Text>
         <FlatList
           scrollEnabled={false}
           style={{ width: '100%' }}
@@ -656,12 +670,15 @@ export default function HomeScreen() {
     if (!athlete?.id) return;
     (async () => {
       await fetchFromStrava(`/athletes/${athlete.id}/stats`);
-      const { thisWeek } = getThisWeekLastWeek();
+    })();
+  }, [athlete]);
+
+  useEffect(() => {
+    const { thisWeek } = getThisWeekLastWeek();
       setThisWeekMile(thisWeek[0]);
       setThisWeekTime(thisWeek[1]);
       setThisWeekObjects(thisWeek[2]);
-    })();
-  }, [athlete]);
+  }, [myActivities]);
 
   useEffect(() => {
     (async () => {
@@ -704,7 +721,7 @@ export default function HomeScreen() {
     else change = thisWeek[2] - lastWeek[2];
 
     if (change > 0) return <IconSymbol size={20} name="arrow.up.right" color="green" />;
-    if (change < 0) return <IconSymbol size={20} name="arrow.down.left" color="red" />;
+    if (change < 0) return <IconSymbol size={20} name="arrow.down.right" color="red" />;
     return <IconSymbol size={20} name="arrow.right" color="rgb(80, 119, 142)" />;
   }, [myActivities, myLocs]);
 
@@ -752,6 +769,7 @@ export default function HomeScreen() {
       {screenSetting !== 'stats' && (
         <Animated.View
           entering={SlideInRight.duration(1000)}
+          exiting={SlideInLeft.duration(1000)}
           style={{
             position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
             backgroundColor: colors.background, zIndex: 10,
@@ -801,7 +819,6 @@ const styles = StyleSheet.create({
   carouselImage: { height: 400, width: 300, borderRadius: 20 },
   safeBody: { marginTop: 40 },
   activityLog: {
-    backgroundColor: 'rgba(96, 96, 96, 0.4)',
     borderRadius: 30, width: '100%',
     padding: 15, paddingHorizontal: 16,
     alignItems: 'center', gap: 10,
@@ -836,16 +853,15 @@ const styles = StyleSheet.create({
   },
   buttonText:   { color: 'white', textAlign: 'center', fontSize: 17 },
   body:         { flexDirection: 'column', fontFamily: 'Radio Canada Big', gap: 15, alignItems: 'center' },
-  bodyEl:       { paddingLeft: 10, paddingRight: 10, width: '100%' },
+  bodyEl:       { paddingLeft: 15, paddingRight: 15, width: '100%' },
   row:          { flexDirection: 'row', gap: 10, width: '100%' },
   head:         { fontSize: 30, fontWeight: '600', fontFamily: 'Radio Canada Big', textAlign: 'center' },
   textBox:      { borderColor: 'gray', borderWidth: 1, width: 200 },
   stats:        { width: '100%', borderRadius: 30, padding: 10 },
-  locationList: { backgroundColor: 'rgba(96, 96, 96, 0.4)', width: '100%', borderRadius: 30, padding: 20 },
+  locationList: { width: '100%', borderRadius: 30, padding: 20 },
   sectHead:     { fontSize: 18, lineHeight: 33, fontWeight: '500' },
   sectBody:     { color: '#BEBEBE', fontSize: 16, lineHeight: 25 },
   halfbox: {
-    backgroundColor: 'rgba(96, 96, 96, 0.4)',
     flex: 1, height: 200, borderRadius: 30, padding: 20,
   },
 });

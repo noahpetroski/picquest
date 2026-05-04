@@ -1,3 +1,6 @@
+const CLIENT_ID = process.env.EXPO_PUBLIC_CLIENT_ID;
+const CLIENT_SECRET = process.env.EXPO_PUBLIC_CLIENT_SECRET;
+
 import * as AuthSession from 'expo-auth-session';
 import * as SecureStore from 'expo-secure-store';
 import * as WebBrowser from 'expo-web-browser';
@@ -17,8 +20,7 @@ const StravaContext = createContext({
 // Strava authorization
 WebBrowser.maybeCompleteAuthSession();
 
-const CLIENT_ID = process.env.CLIENT_ID;
-const CLIENT_SECRET = process.env.CLIENT_SECRET;
+
 
 const discovery = {
   authorizationEndpoint: 'https://www.strava.com/oauth/mobile/authorize',

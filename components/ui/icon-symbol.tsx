@@ -22,7 +22,7 @@ const MAPPING = {
   'gear':'settings',
   'plus':'add',
   'arrow.up.right':'north-east',
-  'arrow.down.left':'south-east',
+  'arrow.down.right':'south-east',
   'chevron.down':'keyboard-arrow-down',
   'figure.run' : 'directions-run',
   'figure.walk' : 'directions-walk',
