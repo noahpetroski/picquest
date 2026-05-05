@@ -24,8 +24,8 @@ const C_ITEM_WIDTH = SCREEN_WIDTH * 0.8;
 const C_MARGIN = 5;
 const C_WIDTH = C_ITEM_WIDTH + C_MARGIN * 2;
 
-const lightColors = { background: 'white', text: 'black', gray1: '#dcdcdc', gray2: '#787878', tealHighlight: "#67A09F"};
-const darkColors  = { background: '#2C2C2C', text: 'white', gray1: '#404040', gray2: '#898989', tealHighlight: "#7ACDCB"};
+  const lightColors = { background: '#e3e3e3', text: 'black', gray1: '#c2c2c2', gray2: '#787878', tealHighlight: "#67A09F", mapTeal: "#ffa304", contButton: "white"};
+  const darkColors  = { background: '#2C2C2C', text: 'white', gray1: '#404040', gray2: '#898989', tealHighlight: "#7ACDCB", mapTeal: "#ffa304", contButton: "white"};
 
 // ─── Pure helpers (no component state needed) ────────────────────────────────
 
@@ -53,7 +53,7 @@ function dateFormat(isoDate: string) {
 const WALKTHROUGH_STEPS = [
   { title: 'Glad we found you!', body: "Your city is full of secrets. Use photo clues and distance hints to track them down — just sync a Strava activity and start discovering. Here\'s everything you need to know.", image: require('@/assets/images/PQ-white.png') },
   { title: 'Your Stats',         body: 'Check your mileage, active time, and discoveries for the past 7 days.',           image: require('@/assets/images/tutorial/stats.png') },
-  { title: 'Collection',         body: 'Look for locations close to you, including pictures of them and an interactive map.',              image: require('@/assets/images/tutorial/collection-1.png') },
+  { title: 'Collection',         body: 'See all of your current discoveries.',              image: require('@/assets/images/tutorial/collection-1.png') },
   { title: 'Collection: Discover New', body: 'Look for locations close to you, including pictures of them and an interactive map.',     image: require('@/assets/images/tutorial/collection-2.png') },
   { title: 'Your Map',           body: 'View all of your discoveries on a map.',             image: require('@/assets/images/tutorial/map-view.png') },
   { title: 'Activity Log',       body: "See everything you\'ve uploaded to PicQuest.",        image: require('@/assets/images/tutorial/activity-log.png') },
@@ -209,7 +209,7 @@ interface CarouselItemProps {
   IMAGE_MAP: Record<string, any>;
 }
 
-const CarouselItem = memo(({ item, index, scrollX, colors, IMAGE_MAP }: CarouselItemProps) => {
+const CarouselItem = memo(({ item, index, scrollX, colors, IMAGE_MAP, length }: CarouselItemProps) => {
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{
       scale: interpolate(
@@ -227,6 +227,7 @@ const CarouselItem = memo(({ item, index, scrollX, colors, IMAGE_MAP }: Carousel
         <Image style={styles.carouselImage} source={IMAGE_MAP[item.id]} resizeMode="cover" />
       )}
       <View style={styles.carouselTextContainer}>
+        <Text style={[styles.sectBody, { fontSize: 15, color: colors.gray2}]}>Item {index+1} of {length}</Text>
         <Text style={{ color: colors.text, fontFamily: 'Radio Canada Big', fontSize: 20 }}>{item.name}</Text>
         <Text style={[styles.sectBody, {color: colors.gray2}]}>FOUND {item.date}</Text>
       </View>
@@ -278,6 +279,7 @@ const LocationsScroll = memo(({ myLocs, colors, IMAGE_MAP }: LocationsScrollProp
           scrollX={scrollX}
           colors={colors}
           IMAGE_MAP={IMAGE_MAP}
+          length={myLocs.length}
         />
       ))}
     </Animated.ScrollView>
@@ -393,7 +395,7 @@ const StatsView = memo(({
       <Image source={{ uri: athlete?.profile }} style={styles.image} />
 
       <View style={styles.stats}>
-        <Text style={[styles.sectHead, { color: colors.text }]}>THIS WEEK:</Text>
+        <Text style={[styles.sectHead, { color: colors.text }]}>LAST 7 DAYS:</Text>
         <View style={styles.row}>
           <Text style={[styles.sectBody, {color: colors.gray2}]}>{'MILEAGE\nACTIVE TIME\nDISCOVERIES'}</Text>
           <View style={{ flexDirection: 'column', flex: 1 }}>
@@ -493,7 +495,7 @@ const CollectionView = memo(({ colors, myLocs, IMAGE_MAP, setScreen }: Collectio
       </TouchableOpacity>
       <Text style={[styles.head, { color: colors.text }]}>My Collection</Text>
     </View>
-    <View style={{ flexDirection: 'column', flex: 1, marginBottom: 0 }}>
+    <View style={{ flexDirection: 'column', width: '100%', flex: 1, marginBottom: 0 }}>
       {myLocs.length > 0 ? (
         <LocationsScroll myLocs={myLocs} colors={colors} IMAGE_MAP={IMAGE_MAP} />
       ) : (
@@ -501,14 +503,15 @@ const CollectionView = memo(({ colors, myLocs, IMAGE_MAP, setScreen }: Collectio
           No locations yet! Try the discover button to look for new ones!
         </Text>
       )}
-    </View>
-    <View style={[styles.body, styles.bodyEl]}>
-      <TouchableOpacity
-        style={[styles.button, { backgroundColor: 'rgba(94, 141, 140, 1)' }]}
-        onPress={() => setScreen('map')}
-      >
-        <Text style={styles.buttonText}>Discover New</Text>
-      </TouchableOpacity>
+    
+      <View style={[styles.body, styles.bodyEl]}>
+        <TouchableOpacity
+          style={[styles.button, { width: '100%', backgroundColor: 'rgba(94, 141, 140, 1)' }]}
+          onPress={() => setScreen('map')}
+        >
+          <Text style={styles.buttonText}>Discover New</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   </Animated.View>
 ));
@@ -769,7 +772,6 @@ export default function HomeScreen() {
       {screenSetting !== 'stats' && (
         <Animated.View
           entering={SlideInRight.duration(1000)}
-          exiting={SlideInLeft.duration(1000)}
           style={{
             position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
             backgroundColor: colors.background, zIndex: 10,

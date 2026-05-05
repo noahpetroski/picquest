@@ -19,8 +19,8 @@ export default function SettingsScreen() {
         'Radio Canada Big':require('../../assets/fonts/Radio_Canada_Big/RadioCanadaBig.ttf')
   });
 
-  const lightColors = { background: 'white', text: 'black', gray1: '#dcdcdc', gray2: '#787878' };
-  const darkColors  = { background: '#2C2C2C', text: 'white', gray1: '#404040', gray2: '#898989' };
+  const lightColors = { background: '#e3e3e3', text: 'black', gray1: '#e3e3e3', gray2: '#787878', tealHighlight: "#67A09F", mapTeal: "#ffa304", contButton: "white"};
+  const darkColors  = { background: '#2C2C2C', text: 'white', gray1: '#404040', gray2: '#898989', tealHighlight: "#7ACDCB", mapTeal: "#ffa304", contButton: "white"};
 
   const colorScheme = useColorScheme();
   const colors = colorScheme == 'dark' ? darkColors : lightColors;

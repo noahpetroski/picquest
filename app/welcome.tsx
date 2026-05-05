@@ -10,21 +10,14 @@ export default function WelcomeScreen() {
         'Radio Canada Big':require('../assets/fonts/Radio_Canada_Big/RadioCanadaBig.ttf')
   });
 
-  const lightColors = {
-    background: 'white',
-    text: 'black'
-  }
-
-  const darkColors = {
-    background: '#2C2C2C',
-    text: 'white'
-  }
+  const lightColors = { background: '#e3e3e3', text: 'black', gray1: '#c2c2c2', gray2: '#787878', tealHighlight: "#67A09F", mapTeal: "#ffa304", contButton: "white"};
+  const darkColors  = { background: '#2C2C2C', text: 'white', gray1: '#404040', gray2: '#898989', tealHighlight: "#7ACDCB", mapTeal: "#ffa304", contButton: "white"};
   const colorScheme = useColorScheme();
   const colors = colorScheme == 'dark' ? darkColors : lightColors;
 
   const {request, login} = useStrava();
 
-  const pqLogoSrc = require('@/assets/images/PQ-white.png');
+  const pqLogoSrc = colorScheme == 'dark' ? require('@/assets/images/PQ-white.png') : require('@/assets/images/PQ-black.png');
   const v1Src = require('@/assets/images/welcome-1.png');
   const v2Src = require('@/assets/images/welcome-2.png');
 

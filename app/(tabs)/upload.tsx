@@ -1,6 +1,6 @@
 import { useFonts } from 'expo-font';
 import React, { useEffect, useState, memo, useCallback } from 'react';
-import { SafeAreaView, TouchableOpacity, Image, ScrollView, StyleSheet, Text, FlatList, TextInput, useColorScheme, View, useAnimatedValue } from 'react-native';
+import { TouchableOpacity, Image, ScrollView, StyleSheet, Text, FlatList, TextInput, useColorScheme, View, useAnimatedValue } from 'react-native';
 import { useStrava } from '@/context/StravaContext';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useMystLoc } from '@/context/MystLocContext';
@@ -9,9 +9,77 @@ import * as SecureStore from 'expo-secure-store';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import Animated, { FadeInDown, FadeIn, FadeInUp, useSharedValue, withTiming, useAnimatedStyle } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
+
+// ─── WalkthroughOverlay ───────────────────────────────────────────────────────
+
+const WALKTHROUGH_STEPS = [
+  { title: 'Ready to discover?', body: "Select one of your recent Strava activities.", image: require('@/assets/images/tutorial/activities.png') },
+  { title: 'Activity Preview',   body: 'View information about an activity.',           image: require('@/assets/images/tutorial/activity-preview.png') },
+  { title: 'Unlock Discoveries', body: 'Reveal the mystery locations you found in this activity.', image: require('@/assets/images/tutorial/found-spots.png') },
+  { title: 'Save Activity', body: 'Make sure you save your activity to PicQuest with the add button!',     image: require('@/assets/images/tutorial/add-act.png') },
+];
+
+
+const WalkthroughOverlay = memo(({colors, focused}) => {
+  const [walkthroughStep, setWalkthroughStep] = useState(0);
+
+  useEffect(() => {
+    if (!focused) return;
+    (async () => {
+      const seen = await SecureStore.getItemAsync('act-walkthroughSeen');
+      if (!seen) {
+        setWalkthroughStep(1);
+        await SecureStore.setItemAsync('act-walkthroughSeen', 'true');
+      }
+    })();
+  }, [focused]);
+
+  if (walkthroughStep === 0 || walkthroughStep > WALKTHROUGH_STEPS.length) return null;
+  const step = WALKTHROUGH_STEPS[walkthroughStep - 1];
+
+  return (
+    <Animated.View entering={FadeIn.duration(300)} style={overlayStyles.backdrop}>
+      <Animated.View entering={FadeInDown.duration(400)} style={[overlayStyles.card]}>
+        <Text style={overlayStyles.title}>{step.title}</Text>
+        <Text style={overlayStyles.body}>{step.body}</Text>
+        <Image style={[{ minWidth: 100, maxWidth: 300, minHeight: 300, maxHeight: 300}]} resizeMode="contain" source={step.image} />
+        <View style={overlayStyles.footer}>
+          <Text style={{ color: 'gray' }}>{walkthroughStep}/{WALKTHROUGH_STEPS.length}</Text>
+          <TouchableOpacity
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setWalkthroughStep(s => s + 1);
+            }}
+          >
+            <Text style={overlayStyles.nextBtn}>
+              {walkthroughStep < WALKTHROUGH_STEPS.length ? 'Next →' : 'Done'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </Animated.View>
+    </Animated.View>
+  );
+});
+
+const overlayStyles = StyleSheet.create({
+  backdrop: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 100,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  card: {
+    backgroundColor: '#2C2C2C', borderRadius: 20,
+    padding: 25, margin: 20, gap: 12,
+  },
+  title: { color: 'white', fontFamily: 'Radio Canada Big', fontSize: 22, fontWeight: '600' },
+  body:  { color: '#BEBEBE', fontSize: 16, fontFamily: 'Radio Canada Big' },
+  footer: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
+  nextBtn: { color: '#7ACDCB', fontSize: 16, fontFamily: 'Radio Canada Big' },
+});
 
 export default function TabTwoScreen() {
+  const focused = useIsFocused();
   // Mystery Locations
   const {mysteryLocations, myActivities, checkInRadius, newLocs, addLocation, addActivity, IMAGE_MAP} = useMystLoc();
   const [dropdownState, setDropdownState] = useState(false);
@@ -24,8 +92,8 @@ export default function TabTwoScreen() {
     'Radio Canada Big':require('../../assets/fonts/Radio_Canada_Big/RadioCanadaBig.ttf')
   });
 
-  const lightColors = { background: 'white', text: 'black', gray1: '#dcdcdc', gray2: '#787878', tealHighlight: "#67A09F", mapTeal: "#ffa304"};
-  const darkColors  = { background: '#2C2C2C', text: 'white', gray1: '#404040', gray2: '#898989', tealHighlight: "#7ACDCB", mapTeal: "#ffa304"};
+  const lightColors = { background: '#e3e3e3', text: 'black', gray1: '#c2c2c2', gray2: '#787878', tealHighlight: "#67A09F", mapTeal: "#ffa304", contButton: "white"};
+  const darkColors  = { background: '#2C2C2C', text: 'white', gray1: '#404040', gray2: '#898989', tealHighlight: "#7ACDCB", mapTeal: "#ffa304", contButton: "white"};
 
   const colorScheme = useColorScheme();
   const colors = colorScheme == 'dark' ? darkColors : lightColors;
@@ -69,75 +137,6 @@ useEffect(() => {
     setFoundSpots(checkInRadius(decoded));
     setShowMysterySpot(false);
   };
-
-  // ─── WalkthroughOverlay ───────────────────────────────────────────────────────
-  
-  const WALKTHROUGH_STEPS = [
-    { title: 'Ready to discover?', body: "Select one of your recent Strava activities.", image: require('@/assets/images/activities.png') },
-    { title: 'Activity Preview',   body: 'View information about an activity.',           image: require('@/assets/images/tutorial/activity-preview.png') },
-    { title: 'Unlock Discoveries', body: 'Reveal the mystery locations you found in this activity.', image: require('@/assets/images/tutorial/found-spots.png') },
-    { title: 'Save Activity', body: 'Make sure you save your activity to PicQuest with the upload button!',     image: require('@/assets/images/tutorial/add-act.png') },
-  ];
-  
-  
-  const WalkthroughOverlay = memo(() => {
-    const [walkthroughStep, setWalkthroughStep] = useState(0);
-  
-    useFocusEffect(
-      useCallback(() => {
-        (async () => {
-          const seen = await SecureStore.getItemAsync('your-unique-key');
-          if (!seen) {
-            setWalkthroughStep(1);
-            await SecureStore.setItemAsync('your-unique-key', 'true');
-          }
-        })();
-      }, [])
-    );
-  
-    if (walkthroughStep === 0 || walkthroughStep > WALKTHROUGH_STEPS.length) return null;
-    const step = WALKTHROUGH_STEPS[walkthroughStep - 1];
-  
-    return (
-      <Animated.View entering={FadeIn.duration(300)} style={overlayStyles.backdrop}>
-        <Animated.View entering={FadeInDown.duration(400)} style={[overlayStyles.card]}>
-          <Text style={overlayStyles.title}>{step.title}</Text>
-          <Text style={overlayStyles.body}>{step.body}</Text>
-          <Image style={[{ minWidth: 100, maxWidth: 300, minHeight: 300, maxHeight: 300}]} resizeMode="contain" source={step.image} />
-          <View style={overlayStyles.footer}>
-            <Text style={{ color: 'gray' }}>{walkthroughStep}/{WALKTHROUGH_STEPS.length}</Text>
-            <TouchableOpacity
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setWalkthroughStep(s => s + 1);
-              }}
-            >
-              <Text style={overlayStyles.nextBtn}>
-                {walkthroughStep < WALKTHROUGH_STEPS.length ? 'Next →' : 'Done'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </Animated.View>
-      </Animated.View>
-    );
-  });
-  
-  const overlayStyles = StyleSheet.create({
-    backdrop: {
-      position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-      backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 100,
-      justifyContent: 'center', alignItems: 'center',
-    },
-    card: {
-      backgroundColor: '#2C2C2C', borderRadius: 20,
-      padding: 25, margin: 20, gap: 12,
-    },
-    title: { color: 'white', fontFamily: 'Radio Canada Big', fontSize: 22, fontWeight: '600' },
-    body:  { color: '#BEBEBE', fontSize: 16, fontFamily: 'Radio Canada Big' },
-    footer: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
-    nextBtn: { color: '#7ACDCB', fontSize: 16, fontFamily: 'Radio Canada Big' },
-  });
-
 
   // Map Stuff
   const [status, setStatus] = useState("none");
@@ -260,7 +259,7 @@ function MysterySpotReveal() {
           <Animated.View style={[revealStyle]}>
             <TouchableOpacity
               onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setMysteryWindow("closed"); }}
-              style={styles.button2}
+              style={[styles.button2, {backgroundColor: colors.contButton}]}
             >
               <Text style={styles.buttonText2}>Continue</Text>
             </TouchableOpacity>
@@ -309,7 +308,7 @@ function MysterySpotReveal() {
   
     return (
       <View style={[{backgroundColor: colors.background, paddingTop: 40}]}>
-        <WalkthroughOverlay />
+      <WalkthroughOverlay colors={colors} focused={focused}/>
       <View style={{height: '100%'}}>
         
         {mysteryWindow == "closed" ?
@@ -448,8 +447,8 @@ const styles = StyleSheet.create({
   },
   button2: {
     width: '100%',
+    boxShadow: '0px 4px 6px rgba(0, 0, 0, 0.1)',
     opacity: 0.5,
-    backgroundColor: 'white',
     borderRadius: 10,
     padding: 10,
     top: 0,
